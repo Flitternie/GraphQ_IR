@@ -17,35 +17,22 @@ from utils.misc import init_vocab
 from transformers import *
 
 
-
-def get_program_seq(program):
-    seq = []
-    for item in program:
-        func = item['function']
-        inputs = item['inputs']
-        seq.append(func + '(' + '<c>'.join(inputs) + ')')
-    seq = '<b>'.join(seq)
-    # print(program)
-    # print(seq)
-    return seq
-
 def encode_dataset(dataset, vocab, tokenizer, test = False):
     questions = []
-    programs = []
+    sparqls = []
     choices = []
     answers = []
     for item in tqdm(dataset):
-        question = item['rewrite'] if 'rewrite' in item.keys() else item['question']
+        question = item['origin'] if 'origin' in item.keys() else item['question']
         questions.append(question)
         _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
         choices.append(_)
         if not test:
-            program = item['program']
-            program = get_program_seq(program)
-            programs.append(program)
+            sparql = item['sparql']
+            sparqls.append(sparql)
             answers.append(vocab['answer_token_to_idx'].get(item['answer']))
     
-    sequences = questions + programs
+    sequences = questions + sparqls
     encoded_inputs = tokenizer(sequences, padding = True)
     
     max_seq_length = len(encoded_inputs['input_ids'][0])
@@ -55,7 +42,7 @@ def encode_dataset(dataset, vocab, tokenizer, test = False):
     source_ids = np.array(input_ids['input_ids'], dtype = np.int32)
     source_mask = np.array(input_ids['attention_mask'], dtype = np.int32)
     if not test:
-        target_ids = tokenizer.batch_encode_plus(programs, max_length = max_seq_length, pad_to_max_length = True, truncation = True)
+        target_ids = tokenizer.batch_encode_plus(sparqls, max_length = max_seq_length, pad_to_max_length = True, truncation = True)
         target_ids = np.array(target_ids['input_ids'], dtype = np.int32)
     else:
         target_ids = np.array([], dtype = np.int32)
@@ -93,7 +80,9 @@ def main():
         json.dump(vocab, f, indent=2)
     for k in vocab:
         print('{}:{}'.format(k, len(vocab[k])))
+    
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
+    
     for name, dataset in zip(('train', 'val', 'test', 'test_ans'), (train_set, val_set, test_set, test_set)):
         # print('Encode {} set'.format(name))
         outputs = encode_dataset(dataset, vocab, tokenizer, name=='test')

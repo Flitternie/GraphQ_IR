@@ -16,6 +16,7 @@ import torch.optim as optim
 import logging
 import time
 from utils.lr_scheduler import get_linear_schedule_with_warmup
+from nltk.translate.bleu_score import sentence_bleu
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
@@ -23,7 +24,38 @@ rootLogger = logging.getLogger()
 import warnings
 warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql query
 
+def cal_performance(pred, gold, tokenizer):
+    batch_bleu = 0.0
+    batch_correct = 0
+    for x, y in zip(pred, gold):
+        y = tokenizer.decode(y, skip_special_tokens = True, clean_up_tokenization_spaces = True)
+        x = tokenizer.decode(x, skip_special_tokens = True, clean_up_tokenization_spaces = True)
+        batch_bleu += sentence_bleu([y], x)
+        batch_correct += x==y
+    return batch_bleu, batch_correct
 
+def evaluate(args, model, tokenizer, data, device):
+    model.eval()
+    total_bleu, total_correct = 0.0, 0.0
+    with torch.no_grad():
+        for batch in tqdm(data, total=len(data)):
+            source_ids, source_mask, choices, target_ids, answer = [x.to(device) for x in batch]
+            outputs = model.module.generate(
+                input_ids=source_ids,
+                max_length = 500,
+            ) if hasattr(model, "module") else model.generate(
+                input_ids=source_ids,
+                max_length = 500,
+            ) 
+            batch_bleu, batch_correct = cal_performance(outputs, target_ids, tokenizer)
+            total_bleu += batch_bleu
+            total_correct += batch_correct
+
+        acc = total_correct/len(data)
+        avg_bleu = total_bleu/len(data)
+        logging.info('accuracy: {}, bleu: {}'.format(acc, avg_bleu))
+
+        return avg_bleu
 
 
 def train(args):
@@ -43,7 +75,7 @@ def train(args):
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
     model = model_class.from_pretrained(args.model_name_or_path)
     model = model.to(device)
-    logging.info(model)
+    # logging.info(model)
     t_total = len(train_loader) // args.gradient_accumulation_steps * args.num_train_epochs    # Prepare optimizer and schedule (linear warmup and decay)
     no_decay = ["bias", "LayerNorm.weight"]
     bart_param_optimizer = list(model.named_parameters())
@@ -87,7 +119,10 @@ def train(args):
     logging.info("===================Dev==================")
     # evaluate(args, model, val_loader, device)
     tr_loss, logging_loss = 0.0, 0.0
+    best_acc, current_acc = 0.0, 0.0
+
     model.zero_grad()
+
     for _ in range(int(args.num_train_epochs)):
         pbar = ProgressBar(n_total=len(train_loader), desc='Training')
         for step, batch in enumerate(train_loader):
@@ -100,14 +135,14 @@ def train(args):
             pad_token_id = tokenizer.pad_token_id
             source_ids, source_mask, y = batch[0], batch[1], batch[-2]
             y_ids = y[:, :-1].contiguous()
-            lm_labels = y[:, 1:].clone()
-            lm_labels[y[:, 1:] == pad_token_id] = -100
+            labels = y[:, 1:].clone()
+            labels[y[:, 1:] == pad_token_id] = -100
 
             inputs = {
                 "input_ids": source_ids.to(device),
                 "attention_mask": source_mask.to(device),
                 "decoder_input_ids": y_ids.to(device),
-                "lm_labels": lm_labels.to(device),
+                "labels": labels.to(device),
             }
             outputs = model(**inputs)
             loss = outputs[0]
@@ -120,26 +155,25 @@ def train(args):
                 scheduler.step()  # Update learning rate schedule
                 model.zero_grad()
                 global_step += 1
-            # if args.logging_steps > 0 and global_step % args.logging_steps == 0:
-            #     logging.info("===================Dev==================")
-            #     evaluate(args, model, val_loader, device)
-            #     logging.info("===================Test==================")
-            #     evaluate(args, model, test_loader, device)
-            if args.save_steps > 0 and global_step % args.save_steps == 0:
-                    # Save model checkpoint
-                    output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    model_to_save = (
-                        model.module if hasattr(model, "module") else model
-                    )  # Take care of distributed/parallel training
-                    model_to_save.save_pretrained(output_dir)
-                    torch.save(args, os.path.join(output_dir, "training_args.bin"))
-                    logging.info("Saving model checkpoint to %s", output_dir)
-                    tokenizer.save_vocabulary(output_dir)
-                    torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                    torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-                    logging.info("Saving optimizer and scheduler states to %s", output_dir)
+                
+        current_acc = evaluate(model, tokenizer, val_loader, device, args)
+        if current_acc > best_acc:
+            best_acc = current_acc
+            # Save model checkpoint
+            output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            model_to_save = (
+                model.module if hasattr(model, "module") else model
+            )  # Take care of distributed/parallel training
+            model_to_save.save_pretrained(output_dir)
+            torch.save(args, os.path.join(output_dir, "training_args.bin"))
+            logging.info("Saving model checkpoint to %s", output_dir)
+            tokenizer.save_vocabulary(output_dir)
+            torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+            torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+            logging.info("Saving optimizer and scheduler states to %s", output_dir)
+            
         logging.info("\n")
         if 'cuda' in str(device):
             torch.cuda.empty_cache()

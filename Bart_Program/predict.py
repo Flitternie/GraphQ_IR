@@ -45,6 +45,7 @@ def post_process(text):
     return bingo
 
 def vis(args, kb, model, data, device, tokenizer):
+    model = model.module if hasattr(model, "module") else model
     while True:
         # text = 'Who is the father of Tony?'
         # text = 'Donald Trump married Tony, where is the place?'
@@ -62,6 +63,7 @@ def vis(args, kb, model, data, device, tokenizer):
 
 def predict(args, kb, model, data, device, tokenizer, executor):
     model.eval()
+    model = model.module if hasattr(model, "module") else model
     count, correct = 0, 0
     pattern = re.compile(r'(.*?)\((.*?)\)')
     with torch.no_grad():
@@ -75,8 +77,7 @@ def predict(args, kb, model, data, device, tokenizer, executor):
             )
 
             all_outputs.extend(outputs.cpu().numpy())
-            break
-        
+
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in all_outputs]
         # questions = [tokenizer.decode(source_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for source_id in all_answers]
         with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
@@ -101,10 +102,12 @@ def predict(args, kb, model, data, device, tokenizer, executor):
                     inputs_list.append(inputs)
                 ans = executor.forward(func_list, inputs_list, ignore_error = True)
                 if ans == None:
-                    ans = 'None'
+                    ans = 'no'
                 f.write(ans + '\n')
+                
 def validate(args, kb, model, data, device, tokenizer, executor):
     model.eval()
+    model = model.module if hasattr(model, "module") else model
     count, correct = 0, 0
     pattern = re.compile(r'(.*?)\((.*?)\)')
     with torch.no_grad():
@@ -119,38 +122,40 @@ def validate(args, kb, model, data, device, tokenizer, executor):
 
             all_outputs.extend(outputs.cpu().numpy())
             all_answers.extend(answer.cpu().numpy())
-            # break
         
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in all_outputs]
         given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
         # questions = [tokenizer.decode(source_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for source_id in all_answers]
         # total = []
-        for a, output in tqdm(zip(given_answer, outputs)):
-            # print(output)
-            # print(output)
-            # print(output)
-            chunks = output.split('<b>')
-            func_list = []
-            inputs_list = []
-            for chunk in chunks:
-                # print(chunk)
-                res = pattern.findall(chunk)
-                # print(res)
-                if len(res) == 0:
-                    continue
-                res = res[0]
-                func, inputs = res[0], res[1]
-                if inputs == '':
-                    inputs = []
-                else:
-                    inputs = inputs.split('<c>')
-                
-                func_list.append(func)
-                inputs_list.append(inputs)
-            ans = executor.forward(func_list, inputs_list, ignore_error = True)
-            if ans == a:
-                correct += 1
-            count += 1
+        with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
+            for a, output in tqdm(zip(given_answer, outputs)):
+                chunks = output.split('<b>')
+                func_list = []
+                inputs_list = []
+                for chunk in chunks:
+                    # print(chunk)
+                    res = pattern.findall(chunk)
+                    # print(res)
+                    if len(res) == 0:
+                        continue
+                    res = res[0]
+                    func, inputs = res[0], res[1]
+                    if inputs == '':
+                        inputs = []
+                    else:
+                        inputs = inputs.split('<c>')
+                    
+                    func_list.append(func)
+                    inputs_list.append(inputs)
+                ans = executor.forward(func_list, inputs_list, ignore_error = True)
+                if ans == None:
+                    ans = 'no'
+                if ans == a:
+                    correct += 1
+
+                f.write(ans + '\n')
+                count += 1
+        
         acc = correct / count
         logging.info('acc: {}'.format(acc))
 
@@ -164,20 +169,23 @@ def train(args):
     logging.info("Create train_loader and val_loader.........")
     vocab_json = os.path.join(args.input_dir, 'vocab.json')
     train_pt = os.path.join(args.input_dir, 'train.pt')
-    val_pt = os.path.join(args.input_dir, 'test.pt')
+    val_pt = os.path.join(args.input_dir, 'test_ans.pt')
     train_loader = DataLoader(vocab_json, train_pt, args.batch_size, training=True)
     val_loader = DataLoader(vocab_json, val_pt, args.batch_size)
     vocab = train_loader.vocab
-    kb = DataForSPARQL(os.path.join(args.input_dir, 'kb.json'))
+    kb = DataForSPARQL(os.path.join("./full_dataset/", 'kb.json'))
     logging.info("Create model.........")
     config_class, model_class, tokenizer_class = (BartConfig, BartForConditionalGeneration, BartTokenizer)
     tokenizer = tokenizer_class.from_pretrained(args.ckpt)
     model = model_class.from_pretrained(args.ckpt)
     model = model.to(device)
-    logging.info(model)
-    rule_executor = RuleExecutor(vocab, os.path.join(args.input_dir, 'kb.json'))
-    # validate(args, kb, model, val_loader, device, tokenizer, rule_executor)
-    predict(args, kb, model, val_loader, device, tokenizer, rule_executor)
+    # logging.info(model)
+    rule_executor = RuleExecutor(vocab, os.path.join("./full_dataset/", 'kb.json'))
+    if args.validate:
+        validate(args, kb, model, val_loader, device, tokenizer, rule_executor)
+    else:
+        predict(args, kb, model, val_loader, device, tokenizer, rule_executor)
+
 
     # vis(args, kb, model, val_loader, device, tokenizer)
 def main():
@@ -198,6 +206,8 @@ def main():
     # model hyperparameters
     parser.add_argument('--dim_hidden', default=1024, type=int)
     parser.add_argument('--alpha', default = 1e-4, type = float)
+
+    parser.add_argument('--validate', default = True, type = bool)
     args = parser.parse_args()
 
     if not os.path.exists(args.save_dir):

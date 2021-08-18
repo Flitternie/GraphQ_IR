@@ -1,5 +1,6 @@
 import os
 import torch
+from torch._C import set_anomaly_enabled
 import torch.optim as optim
 import torch.nn as nn
 import argparse
@@ -8,21 +9,17 @@ import json
 from tqdm import tqdm
 from datetime import date
 from utils.misc import MetricLogger, seed_everything, ProgressBar
-from utils.load_kb import DataForSPARQL
-from .data import DataLoader, DistributedDataLoader, prepare_dataset
+# from utils.load_kb import DataForSPARQL
+from Bart_Program.data import DataLoader
 from transformers import BartConfig, BartForConditionalGeneration, BartTokenizer
 # from .sparql_engine import get_sparql_answer
 import torch.optim as optim
 import logging
 import time
 from utils.lr_scheduler import get_linear_schedule_with_warmup
-from Bart_Program.predict import validate
-from Bart_Program.executor_rule import RuleExecutor
 
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
-
+import torch.nn.functional as F
+from nltk.translate.bleu_score import sentence_bleu
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
@@ -30,39 +27,62 @@ rootLogger = logging.getLogger()
 import warnings
 warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql query
 
+
+def cal_performance(pred, gold, tokenizer):
+    batch_bleu = 0.0
+    batch_correct = 0
+    for x, y in zip(pred, gold):
+        y = tokenizer.decode(y, skip_special_tokens = True, clean_up_tokenization_spaces = True)
+        x = tokenizer.decode(x, skip_special_tokens = True, clean_up_tokenization_spaces = True)
+        batch_bleu += sentence_bleu([y], x)
+        batch_correct += x==y
+    return batch_bleu, batch_correct
+
+def evaluate(model, tokenizer, data, device, args):
+    model.eval()
+    total_bleu, total_correct = 0.0, 0.0
+    count = 0
+    with torch.no_grad():
+        for batch in tqdm(data, total=len(data)):
+            source_ids, source_mask, choices, target_ids, answer = [x.to(device) for x in batch]
+            outputs = model.module.generate(
+                input_ids=source_ids,
+                max_length = 500,
+            ) if hasattr(model, "module") else model.generate(
+                input_ids=source_ids,
+                max_length = 500,
+            ) 
+            assert len(outputs) == len(target_ids)
+            count += len(outputs)
+            batch_bleu, batch_correct = cal_performance(outputs, target_ids, tokenizer)
+            total_bleu += batch_bleu
+            total_correct += batch_correct
+        
+        print(count)
+        acc = total_correct/count
+        avg_bleu = total_bleu/count
+        logging.info('accuracy: {}, bleu: {}'.format(acc, avg_bleu))
+
+        return acc
+
 def train(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    if args.local_rank in [-1, 0]:
-        logging.info("Create train_loader and val_loader.........")
+
+    logging.info("Create train_loader and val_loader.........")
     vocab_json = os.path.join(args.input_dir, 'vocab.json')
     train_pt = os.path.join(args.input_dir, 'train.pt')
     val_pt = os.path.join(args.input_dir, 'val.pt')
-    
-    if args.n_gpus > 1:
-        train_dataset, train_vocab = prepare_dataset(vocab_json, train_pt, training=True, pretrain=args.pretrain)
-        train_sampler = DistributedSampler(train_dataset)
-        train_loader = DistributedDataLoader(train_dataset, train_vocab, args.batch_size//args.n_gpus, train_sampler, pretrain=args.pretrain)
-    else:
-        train_loader = DataLoader(vocab_json, train_pt, args.batch_size, training=True, pretrain=args.pretrain)
-    val_loader = DataLoader(vocab_json, val_pt, max(args.batch_size, 128), training=False, pretrain=False)
+    train_loader = DataLoader(vocab_json, train_pt, args.batch_size, training=True)
+    val_loader = DataLoader(vocab_json, val_pt, args.batch_size)
 
     vocab = train_loader.vocab
-    kb = DataForSPARQL(os.path.join("./full_dataset/", 'kb.json'))
-    rule_executor = RuleExecutor(vocab, os.path.join("./full_dataset/", 'kb.json'))
-
-    if args.local_rank in [-1, 0]:
-        logging.info("Create model.........")
+    
+    logging.info("Create model.........")
     config_class, model_class, tokenizer_class = (BartConfig, BartForConditionalGeneration, BartTokenizer)
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
-    model = model_class.from_pretrained(args.model_name_or_path)
-    
-    
-    if args.n_gpus > 1:
-        # model = nn.DataParallel(model)
-        model = nn.SyncBatchNorm.convert_sync_batchnorm(model).cuda()
-        model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
-    else:
-        model = model.to(device)
+    model = model_class.from_pretrained(args.model_name_or_path)    
+    model = model.to(device)
+    # logging.info(model)
 
     t_total = len(train_loader) // args.gradient_accumulation_steps * args.num_train_epochs    # Prepare optimizer and schedule (linear warmup and decay)
     no_decay = ["bias", "LayerNorm.weight"]
@@ -75,9 +95,10 @@ def train(args):
     ]
     args.warmup_steps = int(t_total * args.warmup_proportion)
     optimizer = optim.AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
                                                 num_training_steps=t_total)
-    # Check if saved optimizer or scheduler states exist
+    # Check if saved optimizer or scheduler states data
     if os.path.isfile(os.path.join(args.model_name_or_path, "optimizer.pt")) and os.path.isfile(
             os.path.join(args.model_name_or_path, "scheduler.pt")):
         # Load in optimizer and scheduler states
@@ -85,7 +106,6 @@ def train(args):
         scheduler.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "scheduler.pt")))
 
     # Train!
-    if args.local_rank in [-1, 0]:
         logging.info("***** Running training *****")
         logging.info("  Num examples = %d", len(train_loader.dataset))
         logging.info("  Num Epochs = %d", args.num_train_epochs)
@@ -104,22 +124,16 @@ def train(args):
         logging.info("  Continuing training from epoch %d", epochs_trained)
         logging.info("  Continuing training from global step %d", global_step)
         logging.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
-    
-    if args.local_rank in [-1, 0]:
-        logging.info('Checking...')
-        logging.info("===================Dev==================")
-    
+    logging.info('Checking...')
+    logging.info("===================Dev==================")
+    # evaluate(args, model, val_loader, device)
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
-    prefix = 0
+    prefix = 25984
     best_acc, current_acc = 0.0, 0.0
-    if args.local_rank in [-1, 0]:
-        # current_acc = validate(args, kb, model, val_loader, device, tokenizer, rule_executor)
-        print("Current performance on validation set: %f" % (current_acc))
-    
-    for epoch_i in range(int(args.num_train_epochs)):
-        if args.n_gpus > 1:
-            train_loader.sampler.set_epoch(epoch_i)
+    # current_acc = evaluate(model, tokenizer, val_loader, device, args)
+    print("Current performance on validation set: %f" % (current_acc))
+    for _ in range(int(args.num_train_epochs)):
         pbar = ProgressBar(n_total=len(train_loader), desc='Training')
         for step, batch in enumerate(train_loader):
             # Skip past any already trained steps if resuming training
@@ -129,10 +143,7 @@ def train(args):
             model.train()
             batch = tuple(t.to(device) for t in batch)
             pad_token_id = tokenizer.pad_token_id
-            if not args.pretrain:
-                source_ids, source_mask, y = batch[0], batch[1], batch[-2]  
-            else:
-                source_ids, source_mask, y = batch[0], batch[1], batch[2]
+            source_ids, source_mask, y = batch[0], batch[1], batch[-2]
             y_ids = y[:, :-1].contiguous()
             labels = y[:, 1:].clone()
             labels[y[:, 1:] == pad_token_id] = -100
@@ -145,8 +156,6 @@ def train(args):
             }
             outputs = model(**inputs)
             loss = outputs[0]
-            if torch.cuda.device_count() > 1:
-                loss = loss.sum()
             loss.backward()
             pbar(step, {'loss': loss.item()})
             tr_loss += loss.item()
@@ -156,34 +165,32 @@ def train(args):
                 scheduler.step()  # Update learning rate schedule
                 model.zero_grad()
                 global_step += 1
-            if args.logging_steps > 0 and global_step % args.logging_steps == 0 and args.local_rank in [-1, 0]:
+
+            if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                 logging.info("===================Dev==================")
-                # evaluate(args, model, val_loader, device)
-                current_acc = validate(args, kb, model, val_loader, device, tokenizer, rule_executor)
+                current_acc = evaluate(model, tokenizer, val_loader, device, args)
                 print("Current performance on validation set: %f" % (current_acc))
-            #     logging.info("===================Test==================")
-            #     evaluate(args, model, test_loader, device)
-            if args.save_steps > 0 and global_step % args.save_steps == 0 and current_acc > best_acc and args.local_rank in [-1, 0]:
-                    best_acc = current_acc
-                    print("Best performance on validation set updated: %f" % (best_acc))
-                    # Save model checkpoint
-                    output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step + prefix))
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    model_to_save = (
-                        model.module if hasattr(model, "module") else model
-                    )  # Take care of distributed/parallel training
-                    model_to_save.save_pretrained(output_dir)
-                    torch.save(args, os.path.join(output_dir, "training_args.bin"))
-                    logging.info("Saving model checkpoint to %s", output_dir)
-                    tokenizer.save_vocabulary(output_dir)
-                    torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                    torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-                    logging.info("Saving optimizer and scheduler states to %s", output_dir)
+
+                # Save model checkpoint
+            if args.save_steps > 0 and global_step % args.save_steps == 0 and current_acc > best_acc:
+                best_acc = current_acc
+                print("Best performance on validation set updated: %f" % (best_acc))
+                
+                output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step + prefix))
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                model_to_save = (
+                    model.module if hasattr(model, "module") else model
+                )  # Take care of distributed/parallel training
+                model_to_save.save_pretrained(output_dir)
+                torch.save(args, os.path.join(output_dir, "training_args.bin"))
+                logging.info("Saving model checkpoint to %s", output_dir)
+                tokenizer.save_vocabulary(output_dir)
+                torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+                torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+                logging.info("Saving optimizer and scheduler states to %s", output_dir)
             
-            if args.n_gpus > 1:
-                dist.barrier()
-        
+        logging.info("\n")
         if 'cuda' in str(device):
             torch.cuda.empty_cache()
     return global_step, tr_loss / global_step
@@ -215,16 +222,10 @@ def main():
                         help="Number of updates steps to accumulate before performing a backward/update pass.", )
     parser.add_argument("--max_grad_norm", default=1.0, type=float,
                         help="Max gradient norm.")
-
-    parser.add_argument('--pretrain', action='store_true')
-    parser.add_argument('--local_rank', default=-1, type=int,
-                    help='node rank for distributed training')
-    parser.add_argument('--port', default=12355, type=int)
     
     # validating parameters
     # parser.add_argument('--num_return_sequences', default=1, type=int)
     # parser.add_argument('--top_p', default=)
-    
     # model hyperparameters
     parser.add_argument('--dim_hidden', default=1024, type=int)
     parser.add_argument('--alpha', default = 1e-4, type = float)
@@ -237,24 +238,13 @@ def main():
     fileHandler.setFormatter(logFormatter)
     rootLogger.addHandler(fileHandler)
     # args display
-    if args.local_rank in [-1, 0]:
-        for k, v in vars(args).items():
-            logging.info(k+':'+str(v))
+    for k, v in vars(args).items():
+        logging.info(k+':'+str(v))
 
     seed_everything(666)
 
-    # distributed data parallel   
-    args.n_gpus = torch.cuda.device_count()
-    if args.n_gpus > 1:
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = str(args.port)
-        dist.init_process_group(backend='nccl', world_size=args.n_gpus)
-        torch.cuda.set_device(args.local_rank)
-
     train(args)
-    
-    if args.n_gpus > 1:
-        dist.destroy_process_group()
+
 
 if __name__ == '__main__':
     main()

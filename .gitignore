@@ -1,7 +1,16 @@
 *.sublime-workspace
 *.sublime-project
+*.zip
 test_dataset/
 dataset/
+full_dataset/
+full_sized/
+exp_results/
+processed_files/
+CompositionalGeneralization/
+bart-base/
+baseline_ckpt/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

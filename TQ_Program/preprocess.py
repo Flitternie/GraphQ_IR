@@ -25,8 +25,7 @@ def get_program_seq(program):
         inputs = item['inputs']
         seq.append(func + '(' + '<c>'.join(inputs) + ')')
     seq = '<b>'.join(seq)
-    # print(program)
-    # print(seq)
+
     return seq
 
 def encode_dataset(dataset, vocab, tokenizer, test = False):
@@ -35,7 +34,7 @@ def encode_dataset(dataset, vocab, tokenizer, test = False):
     choices = []
     answers = []
     for item in tqdm(dataset):
-        question = item['rewrite'] if 'rewrite' in item.keys() else item['question']
+        question = item['origin'] if 'origin' in item.keys() else item['question']
         questions.append(question)
         _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
         choices.append(_)
@@ -93,7 +92,9 @@ def main():
         json.dump(vocab, f, indent=2)
     for k in vocab:
         print('{}:{}'.format(k, len(vocab[k])))
+    
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
+    
     for name, dataset in zip(('train', 'val', 'test', 'test_ans'), (train_set, val_set, test_set, test_set)):
         # print('Encode {} set'.format(name))
         outputs = encode_dataset(dataset, vocab, tokenizer, name=='test')
