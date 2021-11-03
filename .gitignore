@@ -1,13 +1,8 @@
-*.sublime-workspace
-*.sublime-project
+.vscode
 *.zip
-test_dataset/
-dataset/
-full_dataset/
+dataset*/
 full_sized/
-exp_results/
-processed_files/
-CompositionalGeneralization/
+exp*/
 bart-base/
 baseline_ckpt/
 
