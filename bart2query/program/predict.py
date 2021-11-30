@@ -74,10 +74,10 @@ def validate(args, kb, model, data, device, tokenizer):
     model = model.module if hasattr(model, "module") else model
 
     if "new" in args.input_dir:
-        from bart2program.executor_rule_new import RuleExecutor 
+        from .executor_rule_new import RuleExecutor 
         executor = RuleExecutor(os.path.join("./dataset_new/", 'kb.json'))
     else:
-        from bart2program.executor_rule import RuleExecutor 
+        from .executor_rule import RuleExecutor 
         executor = RuleExecutor(os.path.join("./dataset_full/", 'kb.json'))
 
     count, correct = 0, 0
@@ -111,17 +111,17 @@ def validate(args, kb, model, data, device, tokenizer):
         
         acc = correct / count
         logging.info('acc: {}'.format(acc))
-        return acc
+        return acc, outputs
 
 def predict(args, kb, model, data, device, tokenizer):
     model.eval()
     model = model.module if hasattr(model, "module") else model
 
     if "new" in args.input_dir:
-        from bart2program.executor_rule_new import RuleExecutor 
+        from .executor_rule_new import RuleExecutor 
         executor = RuleExecutor(os.path.join("./dataset_new/", 'kb.json'))
     else:
-        from bart2program.executor_rule import RuleExecutor 
+        from .executor_rule import RuleExecutor 
         executor = RuleExecutor(os.path.join("./dataset_full/", 'kb.json'))
 
     with torch.no_grad():

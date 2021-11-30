@@ -102,12 +102,13 @@ def validate(args, kb, model, data, device, tokenizer):
     model.eval()
     model = model.module if hasattr(model, "module") else model
     
-    if args.parser and args.ir_mode:
+    try:
         with open(args.parser, 'rb') as f:
             parser = pickle.load(f)
         if args.local_rank in [-1, 0]:
             logging.info("IR Parser Loaded")
-    else:
+        ir_mode = args.ir_mode
+    except:
         parser = None  
         ir_mode = None
     
@@ -132,7 +133,7 @@ def validate(args, kb, model, data, device, tokenizer):
             pred_sparql = [parser.f_reversible_inverse(sparql) for sparql in pred_sparql]
             
         given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
-
+        
         with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
             for a, s in tqdm(zip(given_answer, pred_sparql)):
                 pred_answer = get_sparql_answer(s, kb)
@@ -148,7 +149,7 @@ def validate(args, kb, model, data, device, tokenizer):
 
     acc = correct / count
     logging.info('acc: {}'.format(acc))
-    return acc 
+    return acc, pred_sparql
 
 def predict(args, kb, model, data, device, tokenizer):
     model.eval()

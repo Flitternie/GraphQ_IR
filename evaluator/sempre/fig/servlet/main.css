@@ -1,0 +1,11 @@
+table {
+  margin:1em 1em 1em 0;
+  background:#F9F9F9;
+  border:0px #AAA solid;
+  border-collapse:collapse;
+}
+
+table td {
+  border:1px #AAA solid;
+  padding:0.1em;
+}

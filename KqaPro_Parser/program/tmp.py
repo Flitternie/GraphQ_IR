@@ -1,4 +1,4 @@
-def exitWhatEntityQuery(self, ctx: ProgramParser.WhatEntityQueryContext):
+    def exitWhatEntityQuery(self, ctx: ProgramParser.WhatEntityQueryContext):
         ctx.parentCtx.slots["query"] = "what is {}".format(self.scoping("entity", ctx.slots["entitySet"]))
         return super().exitWhatEntityQuery(ctx)
     

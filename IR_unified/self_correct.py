@@ -1,7 +1,7 @@
 from enum import unique
 import os
 import re
-from bart2program.executor_rule_new import RuleExecutor
+from bart2query.program.executor_rule_new import RuleExecutor
 from utils.data import load_vocab
 import difflib
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Usage: <id> <server> <command>
+# Run the record shell command
+if [ $# -lt 3 ]; then
+  echo "Usage: $0 <id> <server> <command/args>*"
+  exit 1
+fi
+
+id=$1; shift
+server=$1; shift
+echo "$@" | java -cp $FIG_DIR/fig.jar:$CLASSPATH fig.record.RecordShell -id $id -server $server -commandFiles /dev/stdin -interactive false

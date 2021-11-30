@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ $# -lt 2 ]; then
+  echo "Usage: `basename $0` <id> <start|stop> [<server options>]"
+  exit 1
+fi
+id=$1; shift
+cmd=$1; shift
+
+# Kill old RecordServer if it exists
+# Doesn't work for stupid MacOS because ps gets truncated
+#pid=`ps ax | grep "RecordServer -id $id" | grep -v grep | awk '{print $1}'`
+pid=`ps ax | grep mx2042m | grep -v grep | awk '{print $1}'`
+[ -n "$pid" ] && kill $pid && echo Killed $pid
+
+if [ "$cmd" == "start" ]; then
+  # Start rmiregistry if it hasn't already been started
+  ! ps ax | grep rmiregistry | grep -qv grep && rmiregistry &
+
+  # Start the RecordServer
+  #java -ea -mx2500m fig.record.RecordServer -id $id -commandFiles recrc "$@" &
+  if [ -e "recrc" ]; then rc="-commandFiles recrc"; else rc=; fi
+  java -ea -mx2042m -cp $FIG_DIR/fig.jar:$CLASSPATH fig.record.RecordServer -id $id $rc "$@" &
+  #java -Xprof -ea -mx2500m fig.record.RecordServer -commandFiles recrc "$@" &
+  #java -ea -mx1000m fig.record.RecordServer -commandFiles recrc "$@" &
+fi

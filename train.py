@@ -6,6 +6,7 @@ import torch.nn as nn
 import argparse
 import shutil
 import json
+import sys
 from tqdm import tqdm
 from datetime import date
 from utils.misc import MetricLogger, seed_everything, ProgressBar
@@ -22,7 +23,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
 import warnings
@@ -30,10 +31,16 @@ warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql qu
 
 def train(args):
     if args.mode == 'program':
-        from bart2program.predict import validate
+        from bart2query.program.predict import validate
     elif args.mode == 'sparql':
-        from bart2sparql.predict import validate
-        
+        from bart2query.sparql.predict import validate
+    elif args.mode == 'lambda':
+        from bart2query.lamb.predict import validate
+    elif args.mode == 'ir':
+        from bart2ir.predict import validate
+    else:
+        raise ValueError('mode {} not supported'.format(args.mode))
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     if args.local_rank in [-1, 0]:
         logging.info("Create train_loader and val_loader.........")
@@ -47,9 +54,9 @@ def train(args):
         train_loader = DistributedDataLoader(train_dataset, train_vocab, args.batch_size//args.n_gpus, train_sampler, pretrain=args.pretrain)
     else:
         train_loader = DataLoader(vocab_json, train_pt, args.batch_size, training=True, pretrain=args.pretrain)
-    val_loader = DataLoader(vocab_json, val_pt, args.batch_size*2, training=False, pretrain=False)
+    val_loader = DataLoader(vocab_json, val_pt, args.batch_size, training=False, pretrain=False)
 
-    kb = DataForSPARQL(os.path.join("./dataset_full/", 'kb.json'))
+    kb = DataForSPARQL(os.path.join("./data/kqapro/dataset_full/", 'kb.json'))
     
     if args.local_rank in [-1, 0]:
         logging.info("Create model.........")
@@ -98,13 +105,13 @@ def train(args):
     # Check if continuing training from a checkpoint
     if os.path.exists(args.model_name_or_path) and "checkpoint" in args.model_name_or_path:
         # set global_step to gobal_step of last saved checkpoint from model path
-        global_step = int(args.model_name_or_path.split("-")[-1].split("/")[0])
-        epochs_trained = global_step // (len(train_loader) // args.gradient_accumulation_steps)
-        steps_trained_in_current_epoch = global_step % (len(train_loader) // args.gradient_accumulation_steps)
+        # global_step = int(args.model_name_or_path.split("-")[-1].split("/")[0])
+        # epochs_trained = global_step // (len(train_loader) // args.gradient_accumulation_steps)
+        # steps_trained_in_current_epoch = global_step % (len(train_loader) // args.gradient_accumulation_steps)
         logging.info("  Continuing training from checkpoint, will skip to saved global_step")
-        logging.info("  Continuing training from epoch %d", epochs_trained)
-        logging.info("  Continuing training from global step %d", global_step)
-        logging.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
+        # logging.info("  Continuing training from epoch %d", epochs_trained)
+        # logging.info("  Continuing training from global step %d", global_step)
+        # logging.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
     
     if args.local_rank in [-1, 0]:
         logging.info('Checking...')
@@ -116,13 +123,16 @@ def train(args):
     if args.local_rank in [-1, 0]:
         print("Current performance on validation set: %f" % (current_acc))
     
-    args.logging_steps = round(len(train_dataset)/args.batch_size)
+    args.logging_steps = round(len(train_loader.dataset)/args.batch_size) // 2
     args.save_steps = args.logging_steps
+    epochs_not_improving = 0
     
     for epoch_i in range(int(args.num_train_epochs)):
         if args.n_gpus > 1:
             train_loader.sampler.set_epoch(epoch_i)
         pbar = ProgressBar(n_total=len(train_loader), desc='Training')
+        if args.local_rank in [-1, 0]:
+            epochs_not_improving += 1
         for step, batch in enumerate(train_loader):
             # Skip past any already trained steps if resuming training
             if steps_trained_in_current_epoch > 0:
@@ -161,17 +171,18 @@ def train(args):
 
             if args.logging_steps > 0 and global_step % args.logging_steps == 0 and args.local_rank in [-1, 0]:
                 logging.info("===================Dev==================")
-                current_acc = validate(args, kb, model, val_loader, device, tokenizer)
+                current_acc, _ = validate(args, kb, model, val_loader, device, tokenizer)
                 print("Current best performance on validation set: %f" % (best_acc))
             
             if args.save_steps > 0 and global_step % args.save_steps == 0 and current_acc > best_acc and args.local_rank in [-1, 0]:
+                epochs_not_improving = 0
                 best_acc = current_acc
                 print("Best performance on validation set updated: %f" % (best_acc))
                 # Save model checkpoint
                 # output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step + prefix))
                 output_dir = os.path.join(args.output_dir, "checkpoint-best")
-                if not os.path.exists(output_dir) and args.local_rank in [-1, 0]:
-                    os.makedirs(output_dir)
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir, exist_ok=True)
                 model_to_save = (
                     model.module if hasattr(model, "module") else model
                 )  # Take care of distributed/parallel training
@@ -188,7 +199,11 @@ def train(args):
         
         if 'cuda' in str(device):
             torch.cuda.empty_cache()
-
+        if epochs_not_improving > args.early_stopping:
+            logging.info("%d epochs not improving, training early stopped" % epochs_not_improving)
+            dist.destroy_process_group()
+            return global_step, tr_loss / global_step
+        
     return global_step, tr_loss / global_step
 
 
@@ -199,19 +214,20 @@ def main():
     parser.add_argument('--output_dir', required=True)
 
     parser.add_argument('--save_dir', required=True, help='path to save checkpoints and logs')
-    parser.add_argument('--model_name_or_path', required = True, help = 'pretrained language models')
+    parser.add_argument('--model_name_or_path', required=True, help='pretrained language models')
     parser.add_argument('--ckpt')
 
     # training parameters
     parser.add_argument('--weight_decay', default=1e-5, type=float)
     parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--seed', type=int, default=666, help='random seed')
-    parser.add_argument('--learning_rate', default=3e-5, type = float)
-    parser.add_argument('--num_train_epochs', default=25, type = int)
-    parser.add_argument('--save_steps', default=448, type = int)
-    parser.add_argument('--logging_steps', default=448, type = int)
-    parser.add_argument('--warmup_proportion', default=0.1, type = float,
-                        help="Proportion of training to perform linear learning rate warmup for,E.g., 0.1 = 10% of training.")
+    parser.add_argument('--learning_rate', default=3e-5, type=float)
+    parser.add_argument('--num_train_epochs', default=25, type=int)
+    parser.add_argument('--save_steps', default=448, type=int)
+    parser.add_argument('--logging_steps', default=448, type=int)
+    parser.add_argument('--early_stopping', default=5, type=int)
+    parser.add_argument('--warmup_proportion', default=0.1, type=float,
+                        help="Proportion of training to perform linear learning rate warmup for,E.g., 0.1=10% of training.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
@@ -224,7 +240,7 @@ def main():
                     help='node rank for distributed training')
     parser.add_argument('--port', default=12355, type=int)
 
-    parser.add_argument('--mode', default='sparql', choices=['program', 'sparql'])
+    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'ir', 'lambda'])
     parser.add_argument('--parser', default=None, type=str)
     parser.add_argument('--ir_mode', default=None, choices=['rir', 'lir'])
     
@@ -237,8 +253,8 @@ def main():
     parser.add_argument('--alpha', default = 1e-4, type = float)
     args = parser.parse_args()
 
-    if not os.path.exists(args.save_dir) and args.local_rank in [-1, 0]:
-        os.makedirs(args.save_dir)
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir, exist_ok=True)
     time_ = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
     fileHandler = logging.FileHandler(os.path.join(args.save_dir, '{}.log'.format(time_)))
     fileHandler.setFormatter(logFormatter)

@@ -1,4 +1,4 @@
-# Generated from ./KqaPro_Parser/program_v2/Program.g4 by ANTLR 4.9.2
+# Generated from ./Program.g4 by ANTLR 4.9.2
 from antlr4 import *
 from io import StringIO
 import sys

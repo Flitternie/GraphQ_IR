@@ -1,0 +1,5 @@
+# Usage: <file1> ... <filen>
+# Load these script files
+for x in "$@"; do
+  java -cp $FIG_DIR/fig.jar:$CLASSPATH fig.record.RecordShell -commandFiles $x -interactive false
+done

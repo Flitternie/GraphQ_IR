@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Start/stop the Apache Tomcat for visualizing/browsing fig executions.
+
+version=7.0.37
+export CATALINA_HOME=`dirname $0`/apache-tomcat-$version
+
+# Download Apache Tomcat if we don't have it already.
+if ! [ -e "$CATALINA_HOME" ]; then
+  # Download
+  
+  wget http://archive.apache.org/dist/tomcat/tomcat-7/v$version/bin/apache-tomcat-$version.zip || exit 1
+  unzip apache-tomcat-$version.zip || exit 1
+
+  ln -s ../../servlet $CATALINA_HOME/webapps/fig || exit 1 # Add fig servlet
+
+  # Create username/password
+  echo
+  echo "By default, the fig servlet is password protected, so you will need to"
+  echo "add the following line"
+  echo '    <user username="YOUR_USERNAME" password="YOUR_PASSWORD" roles="fig-user"/>'
+  echo "into the following file in order to access it:"
+  echo "    $CATALINA_HOME/conf/tomcat-users.xml"
+  exit
+fi
+
+bash $CATALINA_HOME/bin/catalina.sh "$@"

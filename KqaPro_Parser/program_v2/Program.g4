@@ -50,11 +50,21 @@ entitySetGroup
     : entitySet entitySet
     ;
 
+// entitySet
+//     : entitySet entitySet setOP # entitySetByOP
+//     | entitySet select # entitySetByRank
+//     | entitySet ( entityFilterByRelation | entityFilterByAttribute ) # entitySetNested
+//     | findAll ( entityFilterByAttribute | entityFilterByConcept ) # entitySetByFilter
+//     | entity # entitySetAtom
+//     ;
+
 entitySet
     : entitySet entitySet setOP # entitySetByOP
     | entitySet select # entitySetByRank
-    | entitySet ( entityFilterByRelation | entityFilterByAttribute ) # entitySetNested
-    | findAll ( entityFilterByAttribute | entityFilterByConcept ) # entitySetByFilter
+    | entitySet entityFilterByRelation # entitySetByRelation 
+    | entitySet entityFilterByAttribute # entitySetByAttribute
+    | entitySet entityFilterByConcept # entitySetByConcept
+    | findAll # entitySetPopulation
     | entity # entitySetAtom
     ;
 

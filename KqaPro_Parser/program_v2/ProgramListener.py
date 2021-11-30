@@ -1,4 +1,4 @@
-# Generated from ./KqaPro_Parser/program_v2/Program.g4 by ANTLR 4.9.2
+# Generated from ./Program.g4 by ANTLR 4.9.2
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .ProgramParser import ProgramParser
@@ -89,12 +89,30 @@ class ProgramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ProgramParser#entitySetByFilter.
-    def enterEntitySetByFilter(self, ctx:ProgramParser.EntitySetByFilterContext):
+    # Enter a parse tree produced by ProgramParser#entitySetByAttribute.
+    def enterEntitySetByAttribute(self, ctx:ProgramParser.EntitySetByAttributeContext):
         pass
 
-    # Exit a parse tree produced by ProgramParser#entitySetByFilter.
-    def exitEntitySetByFilter(self, ctx:ProgramParser.EntitySetByFilterContext):
+    # Exit a parse tree produced by ProgramParser#entitySetByAttribute.
+    def exitEntitySetByAttribute(self, ctx:ProgramParser.EntitySetByAttributeContext):
+        pass
+
+
+    # Enter a parse tree produced by ProgramParser#entitySetPopulation.
+    def enterEntitySetPopulation(self, ctx:ProgramParser.EntitySetPopulationContext):
+        pass
+
+    # Exit a parse tree produced by ProgramParser#entitySetPopulation.
+    def exitEntitySetPopulation(self, ctx:ProgramParser.EntitySetPopulationContext):
+        pass
+
+
+    # Enter a parse tree produced by ProgramParser#entitySetByConcept.
+    def enterEntitySetByConcept(self, ctx:ProgramParser.EntitySetByConceptContext):
+        pass
+
+    # Exit a parse tree produced by ProgramParser#entitySetByConcept.
+    def exitEntitySetByConcept(self, ctx:ProgramParser.EntitySetByConceptContext):
         pass
 
 
@@ -125,12 +143,12 @@ class ProgramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ProgramParser#entitySetNested.
-    def enterEntitySetNested(self, ctx:ProgramParser.EntitySetNestedContext):
+    # Enter a parse tree produced by ProgramParser#entitySetByRelation.
+    def enterEntitySetByRelation(self, ctx:ProgramParser.EntitySetByRelationContext):
         pass
 
-    # Exit a parse tree produced by ProgramParser#entitySetNested.
-    def exitEntitySetNested(self, ctx:ProgramParser.EntitySetNestedContext):
+    # Exit a parse tree produced by ProgramParser#entitySetByRelation.
+    def exitEntitySetByRelation(self, ctx:ProgramParser.EntitySetByRelationContext):
         pass
 
 

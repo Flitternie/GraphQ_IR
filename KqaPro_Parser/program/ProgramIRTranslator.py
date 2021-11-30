@@ -15,7 +15,7 @@ from antlr4.InputStream import InputStream
 from .ProgramLexer import ProgramLexer
 from .ProgramParser import ProgramParser
 from .ProgramListener import ProgramListener
-from .ProgramIREmitter_ import IREmitter
+from .ProgramIREmitter import IREmitter
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import ParseCancellationException

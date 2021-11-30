@@ -121,6 +121,7 @@ def main():
     parser.add_argument('--ckpt', required=True)
 
     parser.add_argument('--mode', required=True, choices=["program", "sparql"])
+    parser.add_argument('--no_correct', action="store_true")
 
     # training parameters
     parser.add_argument('--batch_size', default=256, type=int)
@@ -141,8 +142,8 @@ def main():
             if not a in vocab['answer_token_to_idx']:
                 vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
 
-    if not os.path.isdir(args.output_dir):
-        os.mkdir(args.output_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir, exist_ok=True)
     
     fn = os.path.join(args.output_dir, 'vocab.json')
     print('Dump vocab to {}'.format(fn))
@@ -155,12 +156,13 @@ def main():
     
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
     ir_corrector = IRCorrector()
-
-    for name, dataset in zip(('val', 'test'), (val_set, test_set)):
+ 
+    for name, dataset in zip(('train', 'val', 'test'), (train_set, val_set, test_set)):
         if 'test' in name or 'val' in name:
             ir = [line.strip() for line in prepare(name, args)]
-            ir = [ir_corrector.self_correct(line) for line in ir]
-            print(ir_corrector.correct_num)
+            if not args.no_correct:
+                ir = [ir_corrector.self_correct(line) for line in ir]
+                print(ir_corrector.correct_num)
             outputs = encode_test_dataset(ir, dataset, vocab, tokenizer, args)
         else:
             outputs = encode_dataset(dataset, vocab, tokenizer, args)

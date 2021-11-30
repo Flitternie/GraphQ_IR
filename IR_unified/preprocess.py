@@ -13,7 +13,7 @@ from utils.misc import init_vocab
 from transformers import *
 
 def encode_dataset(dataset, vocab, tokenizer, args):
-    nlqs = []
+    queries = []
     irs = []
     choices = []
     answers = []
@@ -26,20 +26,20 @@ def encode_dataset(dataset, vocab, tokenizer, args):
     translator =  ProgramIRTranslator.IR_translator()
     
     for item in tqdm(dataset):
-        nlqs.append(item['rewrite'])
+        queries.append(item['rewrite'])
         _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
         choices.append(_)
         
         irs.append(translator.program_to_ir(item["program"]))
         answers.append(vocab['answer_token_to_idx'].get(item['answer']))
 
-    sequences = nlqs + irs
+    sequences = queries + irs
     encoded_inputs = tokenizer(sequences, padding = True)
     
     max_seq_length = len(encoded_inputs['input_ids'][0])
     assert max_seq_length == len(encoded_inputs['input_ids'][-1])
     
-    input_ids = tokenizer.batch_encode_plus(nlqs, max_length = max_seq_length, pad_to_max_length = True, truncation = True)
+    input_ids = tokenizer.batch_encode_plus(queries, max_length = max_seq_length, pad_to_max_length = True, truncation = True)
     source_ids = np.array(input_ids['input_ids'], dtype = np.int32)
     source_mask = np.array(input_ids['attention_mask'], dtype = np.int32)
     
@@ -71,12 +71,15 @@ def main():
             if not a in vocab['answer_token_to_idx']:
                 vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
 
-    if not os.path.isdir(args.output_dir):
-        os.mkdir(args.output_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir, exist_ok=True)
+
     fn = os.path.join(args.output_dir, 'vocab.json')
     print('Dump vocab to {}'.format(fn))
+
     with open(fn, 'w') as f:
         json.dump(vocab, f, indent=2)
+        
     for k in vocab:
         print('{}:{}'.format(k, len(vocab[k])))
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)

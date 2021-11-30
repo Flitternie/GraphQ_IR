@@ -1,0 +1,14 @@
+item	.trail	domains	examples	fieldSpecs	(execs)
+item	.name	N
+	numeric	true
+	displayName	N
+	gloss	
+	data	$options.map:Sample.N
+	rank	1
+item	.name	mean
+	numeric	true
+	displayName	mean
+	gloss	
+	data	$output.map:mean
+	rank	1
+	process	DOUBLE

@@ -1,0 +1,37 @@
+#!/usr/bin/ruby
+
+# Execution outputs can be quite large, so here we copy
+# only the important files of the executions in a directory.
+
+if ARGV.size == 0
+  puts "Usage: <input execPoolDir> [output execPoolDir]"
+  exit 1
+end
+
+inDir = ARGV[0]
+outDir = ARGV[1] || inDir+".summary"
+
+exit 1 unless system "mkdir #{outDir}"
+Dir["#{inDir}/*.exec"].each { |d|
+  n = File.basename(d)
+  puts n
+  exit 1 unless system "mkdir #{outDir}/#{n}"
+  jars = Dir["#{d}/*.jar"].map { |p| File.basename(p) }
+  # Full save
+  (['info.map', 'options.map', 'output.map', 'time.map', 'options.help'] + jars).each { |f|
+    i = "#{inDir}/#{n}/#{f}"
+    o = "#{outDir}/#{n}/#{f}"
+    if File.exists?(i)
+      exit 1 unless system "cp #{i} #{o}"
+    end
+  }
+  # Partial save
+  ['log', 'record'].each { |f|
+    i = "#{inDir}/#{n}/#{f}"
+    o = "#{outDir}/#{n}/#{f}"
+    if File.exists?(i)
+      exit 1 unless system "head -500 #{i} > #{o}.head"
+      exit 1 unless system "tail -500 #{i} > #{o}.tail"
+    end
+  }
+}

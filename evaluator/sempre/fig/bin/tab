@@ -1,0 +1,543 @@
+#!/usr/bin/ruby
+
+# Read in tables in TAB separated or CSV or key=value format (automatically figure this out).
+# First row is optionally header.
+# Operations (pass these items into into -a):
+#  - Project onto columns (with specification)
+#    Specify columns using indices (3) or regexps (:...) on header or body.
+#  - Select (filter) by matching column (/<search> or '?_>5')
+#    Can put arbitrary Ruby code, where _ and _i are bound to the value and index of the column.
+#  - Transform column (s/a/b/ or %_*2)
+#  - Sort (.sort, .sort-)
+#  - Create histogram on a column (.hist)
+#  - Aggregate on a column (.agg)
+#  - Merge two columns (3,5 or prefix or using column name)
+#  - Join two tables on column (-j)
+# Usage:
+#   tab :Letter .hist # Histogram over column that contains 'Letter'
+#   tab 3 /Letter # Print out rows such that column 3 is 'Letter'
+#   tab 3 '?_i<10' # keep the top 10 items
+#   tab 3 %_*100 # multiply column 3 by 100
+#   tab 3 s/a/b/g # do regular expression search/replace
+#   tab 0 5 .sort # sort by column 0, then 5
+#   tab -h # if input has header
+#   tab -b # Prints blown-up display (key: value pairs)
+#   tab -i a.csv b.csv -j sunetid # join
+
+require 'csv'
+require 'pathname'
+require File.dirname(Pathname.new($0).realpath) + '/../lib/myutils'
+
+$inputHasHeader, $outputHasHeader, $blownUpDisplay, $spaces, $inputFiles,
+  $join, $numSelect, $args, $fields, $Fields, $numberRows, $verbose =
+    extractArgs(:spec => [
+  ['header', TrueClass],
+  ['Header', TrueClass],
+  ['blownUpDisplay', TrueClass],
+  ['spaces', TrueClass],
+  ['inputFiles', [String], []],
+  ['join', [String], []],
+  ['numSelect', Fixnum],
+  ['args', [String], []],
+  ['fields', [String]],
+  ['Fields', [String]],
+  ['NumberRows', TrueClass],
+  ['verbose', TrueClass],
+nil])
+# Command-line arguments are either input files are arguments.
+ARGV.each { |arg|
+  if File.file?(arg)
+    $inputFiles << arg
+  else
+    $args << arg
+  end
+}
+$inputFiles << '/dev/stdin' if $inputFiles.size == 0
+
+def canonicalizeValue(x)
+  return nil if x == nil
+  return x if x =~ /^0\d/ # Hack: for IDs - don't treat as octal
+  begin
+    x = Integer(x)
+  rescue
+    begin
+      x = Float(x)
+    rescue
+      x
+    end
+  end
+end
+
+class Table
+  attr_accessor :delim, :header, :data
+
+  def read(path)
+    # Read the contents of path
+    tabDelim = "\t"
+    commaDelim = ','
+    spaceDelim = ' '
+    @delim = nil
+    @header = nil
+
+    # If cells are field=value, then use this to quickly look up
+    nameToCol = {}
+    getCol = lambda { |name|
+      col = nameToCol[name]
+      if not col
+        col = nameToCol[name] = nameToCol.size
+        @header = [] if not @header
+        @header << name
+      end
+      col
+    }
+
+    if $fields
+      @header = $fields
+    end
+    @data = []
+    isCsv = path =~ /\.csv$/
+    if isCsv
+      data = CSV.open(path, 'r')
+    else
+      data = open(path, 'r')
+    end
+    while true
+      break if $numSelect && @data.size >= $numSelect
+      if isCsv
+        row = data.shift
+        break unless row.size > 0
+      else
+        line = data.gets
+        break unless line
+        # Remove leading and trailing whitespace: a bit dangerous
+        line.sub!(/^\s+/, '')
+        line.sub!(/\s+$/, '')
+
+        # Figure out what the delimiter is
+        if not @delim
+          if line =~ /#{tabDelim}/
+            @delim = tabDelim
+          elsif line =~ /#{commaDelim}/
+            @delim = commaDelim
+          elsif line =~ /#{spaceDelim}/
+            @delim = spaceDelim
+          else
+            @delim = spaceDelim # Default
+          end
+        end
+        row = @delim == commaDelim ? CSV.parse(line)[0] : line.chomp.split(/#{@delim}/)
+      end
+
+      if $inputHasHeader && (not @header)
+        @header = row
+      else
+        if row.all?{|v| v == '' || v =~ /=/} then
+          newRow = []
+          row.each { |v|
+            next if v == ''
+            v =~ /^([^=]+)=(.*)$/ or raise "Bad format: #{v}"
+            newRow[getCol.call($1)] = $2
+          }
+          row = newRow
+        end
+        @data << row
+      end
+    end
+    data.close
+
+    @header ||= (0...@data[0].size).map {|col| "col#{col}"}
+    $stderr.puts "Read #{@data.size} rows" if $verbose
+  end
+
+  # Helper: take an argument (specification) and returns a list of columns
+  def parseColumns(arg)
+    if arg =~ /^(\d+)-(\d+)$/  # Range of column indices (e.g., 3-5)
+      return (Integer($1)..Integer($2)).to_a
+    elsif arg =~ /^([\d,]+)$/  # Just a set of columns
+      return arg.split(/,/).map{|x| Integer(x)}
+    elsif arg =~ /^:(.*)$/  # Search to find the column
+      query, rest = $1, $2
+      result = nil
+      @data.each { |row|
+        (0...row.size).each { |col|
+          if row[col].to_s =~ /#{query}/
+            result = col
+            break
+          end
+        }
+      }
+      return [result] if result
+      raise "Can't identify column from #{arg}"
+    else
+      # Comma-separated list of names
+      matches = []
+      arg.split(/,/).each { |a|
+        @header.each_with_index { |name,i|
+          matches << i if name =~ /^#{a}$/
+        }
+      }
+      raise "Not valid header: #{arg}, possible headers: #{@header.inspect}" if matches.size == 0
+      return matches
+    end
+  end
+
+  def numCols; @header.size end
+  def emptyRow; [nil] * numCols end
+
+  # Return a table
+  def join(other, spec, prefix0, prefix1)
+    arg = spec[0] || "0"  # Default to first column
+    otherArg = spec[1] || spec[0]
+    col = parseColumns(arg)[0]
+    otherCol = other.parseColumns(arg)[0]
+    #p [col, otherCol]
+
+    # Set of values on col that we care about
+    values = {}
+    @data.each { |row| values[row[col]] = true }
+
+    map = {}
+    nullOtherData = [] # subset of other.data that doesn't match
+    other.data.each { |row|
+      if values.has_key?(row[otherCol])
+        (map[row[otherCol]] ||= []) << row
+      else
+        nullOtherData << row
+      end
+    }
+
+    joinedHeader = self.header.map{|v| prefix0+v} + other.header.map{|v| prefix1+v}
+    joinedData = []
+    @data.each { |row|
+      otherRows = map[row[col]]
+      if not otherRows
+        joinedData << row + other.emptyRow
+      else
+        otherRows.each { |otherRow|
+          joinedData << row + otherRow
+        }
+      end
+    }
+    nullOtherData.each { |otherRow|
+      joinedData << emptyRow + otherRow
+    }
+
+    joinedTable = Table.new
+    joinedTable.delim = @delim
+    joinedTable.header = joinedHeader
+    joinedTable.data = joinedData
+    joinedTable
+  end
+
+  def addCol(key, value)
+    @header << key
+    @data.each { |row|
+      row << value
+    }
+  end
+  
+  def concat!(other)
+    if @header != other.header
+      raise "Columns don't match: #{@header} and #{other.header}"
+    end
+    @data += other.data
+  end
+
+  # arguments (e.g., 0 5 .sort) determine how to change the table
+  def performArgs(args)
+    proj = [] # new column index -> list of original column indices
+    projNames = [] # new column index -> name to show
+    # In the following, columns refer to the new column index
+    sort = nil # Which column to sort by (only support one)
+    aggregate = [] # Which columns to aggregate (rest of columns are used as the key)
+    sortReverse = false
+    selectTransforms = [] # Select / transform subset of the columns
+    hist = [] # Array of columns to compute the histogram key over
+    histMaxExemplars = 1  # For each key, how many to print
+
+    # No arguments means we want to select everything
+    addAllCols = lambda {
+      proj += (0...numCols).map { |col| [col] }
+      projNames += (0...numCols).map { |col| @header[col] }
+    }
+
+    # Default: if no arguments, then add all columns
+    addAllCols.call if args.size == 0
+
+    ensureProjExists = lambda { throw "No column specified before #{arg}" if proj.size == 0 }
+
+    args.each { |arg|
+      if arg == '.sort'
+        sort = proj.size-1
+      elsif arg == '.sort-'
+        sort = proj.size-1
+        sortReverse = true
+      elsif arg == '.all'
+        addAllCols.call
+      elsif arg =~ /^\.hist(\d*)$/
+        histMaxExemplars = Integer($1) if $1 != ''
+        ensureProjExists.call
+        hist << proj.size-1
+      elsif arg == '.agg'
+        ensureProjExists.call
+        aggregate << proj.size-1
+      elsif arg =~ /^\?(.+)$/  # Select: general (e.g., '?_>5')
+        ensureProjExists.call
+        query = $1
+        selectTransforms << ['select', proj.size-1, eval("lambda { |_,_i| #{query} }")]
+      elsif arg =~ /^[\/=](.*)$/  # Select: search (e.g., /5)
+        ensureProjExists.call
+        query = $1
+        if query == ''
+          selectTransforms << ['select', proj.size-1, lambda { |x,i| x == nil }]
+        else
+          if arg =~ /^=/
+            selectTransforms << ['select', proj.size-1, lambda { |x,i| x.to_s == query }]
+          else
+            selectTransforms << ['select', proj.size-1, lambda { |x,i| x.to_s =~ /#{query}/ }]
+          end
+        end
+      elsif arg =~ /^%(.+)$/  # Transform: general (e.g., %_*2)
+        ensureProjExists.call
+        body = $1
+        selectTransforms << ['transform', proj.size-1, eval("lambda { |_,_i| #{body} }")]
+      elsif arg =~ /^s\/(.+)\/(.*)\/g?$/  # Transform: search and replace (e.g., s/a/b/)
+        ensureProjExists.call
+        search, replace, global = $1, $2, $3
+        if global
+          func = lambda{|x,i| x.sub(/#{search}/, replace)}
+        else
+          func = lambda{|x,i| x.gsub(/#{search}/, replace)}
+        end
+        selectTransforms << ['transform', proj.size-1, func]
+      elsif arg =~ /^.split=(.+)$/ # Transform: split using a particular delimiter (generates two columns, one before delimiter and one after)
+        ensureProjExists.call
+        delim = $1
+        selectTransforms << ['transform', proj.size-1, lambda { |x,i| x.split(/#{delim}/, 2)[0] }] # Pick out stuff before a delimiter
+        proj << proj.last
+        selectTransforms << ['transform', proj.size-1, lambda { |x,i| x.split(/#{delim}/, 2)[1] }] # Pick out after after a delimiter
+      else
+        # Specify a new column
+        proj << parseColumns(arg)
+        projNames << arg
+      end
+    }
+
+    # Canonicalize only when we need to use the row
+    canonicalized = {}
+    canonicalizeColumn = lambda { |cols|
+      cols.each { |col|
+        next if canonicalized[col]  # Already canonicalized
+        $stderr.puts "Canonicalize #{col}" if $verbose
+        @data.each { |row|
+          row[col] = canonicalizeValue(row[col])
+        }
+      }
+    }
+
+    # proj is a sequence of cols (e.g., [[0,1], [2]]
+    # Project onto the specified columns.
+    # Perform aggregation within each group of columns.
+    @header = proj.map_with_index { |cols,j|
+      cols.size == 1 ? @header[cols[0]] : projNames[j]
+    }
+    @data = @data.map { |row|
+      proj.map_with_index { |cols,j|
+        if cols.size == 1
+          value = row[cols[0]]  # No need to aggregate
+        else
+          if cols.all?{|col| row[col] == nil} # Aggregate nils into nil
+            value = nil
+          else # Concatenate non-numerical values
+            value = cols.map{|col| row[col]}.join(' ')
+          end
+        end
+        value
+      }
+    }
+
+    # Select and transform
+    selectTransforms.each { |mode,col,func|
+      canonicalizeColumn.call([col])
+      canonicalized[col] = true
+      if mode == 'select'
+        i = -1
+        @data = @data.select { |row| i += 1; func.call(row[col], i) }
+      elsif mode == 'transform'
+        @data.each_with_index { |row,i| row[col] = func.call(row[col], i) }
+      else
+        raise "Internal error: bad mode #{mode}"
+      end
+    }
+
+    # Sort rows by some column
+    if sort
+      canonicalizeColumn.call([sort])
+      canonicalized[sort] = true
+      # Ensure stable sort
+      indices = (0...@data.size).sort { |i,j|
+        a = @data[i][sort] || 0
+        b = @data[j][sort] || 0
+        a != b ? a <=> b : i <=> j
+      }
+      @data = indices.map {|i| @data[i]}
+      @data.reverse! if sortReverse
+    end
+
+    # Create histogram (hist specifies columns that determine the key)
+    if hist.size > 0
+      counts = {}
+      exemplars = {} # key => list of rows
+      keys = [] # 
+      @data.each { |row|
+        key = hist.map { |col| row[col] }
+        if not counts[key]
+          keys << key
+          counts[key] = 1
+          exemplars[key] = [row]
+        else
+          counts[key] += 1
+          list = exemplars[key]
+          list << row if list.size < histMaxExemplars
+        end
+      }
+      @data = []
+      # Preserve order if we want to actually get multiple views
+      keys = keys.sort{|a,b| counts[a] <=> counts[b]} if histMaxExemplars == 1
+      keys.each { |key|
+        exemplars[key].each { |row|
+          @data << row + [counts[key]]
+        }
+      }
+      @header << 'count'
+    end
+
+    if aggregate.size > 0
+      # |aggregate| specifies the columns that we will do aggregation over.
+      # The rest of the columns serve to form the key.
+      # For each key, stats[key][j] will be a list of numbers for the j-th
+      # column that we're aggregating over.
+      aggregate.each { |col|
+        canonicalizeColumn.call([col])
+        canonicalized[col] = true
+      }
+      keyCols = (0...numCols).select { |col| not aggregate.index(col) }
+      stats = {}
+      keys = []
+      @data.each { |row|
+        key = keyCols.map { |col| row[col] }
+        keyStats = stats[key]
+        if not keyStats
+          keyStats = stats[key] = aggregate.map { [] }
+          keys << key
+        end
+        aggregate.each_with_index { |col,j|
+          keyStats[j] << row[col]
+        }
+      }
+
+      # Change header: remove aggregated fields with statistics
+      newHeader = @header.map_with_index {|name,col|
+        aggregate.index(col) ? nil : name
+      }.compact
+      aggregate.each_with_index { |col,j|
+        newHeader << @header[col] + ".min"
+        newHeader << @header[col] + ".mean"
+        newHeader << @header[col] + ".stddev"
+        newHeader << @header[col] + ".max"
+        newHeader << @header[col] + ".sum"
+      }
+      @header = newHeader
+
+      @data = keys.map { |key|
+        row = key
+        keyStats = stats[key]
+        aggregate.each_with_index { |col,j|
+          numbers = keyStats[j].compact
+          row << numbers.min
+          row << numbers.mean
+          row << numbers.stddev
+          row << numbers.max
+          row << numbers.sum
+        }
+        row
+      }
+    end
+
+    # Use custom header
+    if $Fields
+      @header = $Fields
+    end
+  end
+
+  def print
+    if $blownUpDisplay
+      @data.each_with_index { |row,i|
+        puts "----- #{i+1}/#{@data.size}"
+        (0...row.size).each { |col|
+          puts "#{header[col]}: #{row[col]}"
+        }
+      }
+    else
+      items = []
+      items << @header if $outputHasHeader
+      items += @data
+      if $numberRows
+        items = items.map_with_index { |row,i| [$outputHasHeader ? i : i+1] + row }
+      end
+      if $spaces
+        widths = [0] * numCols
+        items.each { |row|
+          row.each_with_index { |v,i|
+            widths[i] = [v.to_s.size, widths[i]].max
+          }
+        }
+        formats = widths.map { |w| "%-#{w}s" }
+      end
+      items.each { |row|
+        if $spaces
+          puts row.map_with_index { |v,j|
+            sprintf(formats[j], v)
+          }.join(' ')
+        else
+          puts row.join("\t")
+        end
+      }
+    end
+  end
+end
+
+$inputFiles = $inputFiles.map { |path|
+  path == '-' ?  '/dev/stdin' : path
+}
+
+if $join.size > 0
+  # Join tables
+  table = nil
+  i = nil # last index
+  $inputFiles.each { |path|
+    newTable = Table.new
+    newTable.read(path)
+    if not table
+      table = newTable
+    else
+      table = table.join(newTable, $join, i == nil ? '0.' : '', i == nil ? '1.' : "#{i+1}.")
+      i = (i || 0) + 1
+    end
+  }
+else
+  # Concatenate tables
+  table = nil
+  $inputFiles.each { |path|
+    newTable = Table.new
+    newTable.read(path)
+    newTable.addCol('path', path) if $inputFiles.size > 1
+    if not table
+      table = newTable
+    else
+      table.concat!(newTable)
+    end
+  }
+end
+table.performArgs($args)
+table.print

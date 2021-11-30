@@ -58,12 +58,12 @@ def load(f):
 def main():
     gt_folder, pred_fn = sys.argv[1], sys.argv[2]
 
-    gt_fn = os.path.join(gt_folder, 'test_answer.json')
+    gt_fn = os.path.join(gt_folder, 'test.json')
     gt = json.load(open(gt_fn))
     pred = [x.strip() for x in open(pred_fn).readlines()] # one prediction per line
 
     # to compute zero-shot accuracy
-    train_set = json.load(open(os.path.join('./full_dataset', 'train.json')))
+    train_set = json.load(open(os.path.join('./dataset_new', 'train.json')))
     train_answer_set = set(x['answer'] for x in train_set)
 
     labels = ['overall', 'multihop', 'qualifier', 'comparison', 'logical', 'count', 'verify', 'zero-shot']
@@ -82,7 +82,8 @@ def main():
                 cur_labels.append('qualifier')
                 break
         for f in functions:
-            if f in {'SelectBetween','SelectAmong'}:
+            # if f in {'SelectBetween','SelectAmong'}:
+            if f in {'Select'}:
                 cur_labels.append('comparison')
                 break
         for f in functions:
@@ -112,7 +113,10 @@ def main():
             total[k] += 1
 
     for k in labels:
-        print('{}: {:.2f}% ({}/{})'.format(k, correct[k]/total[k]*100, correct[k], total[k]))
+        if total[k] == 0:
+            print('{}: {:.2f}% ({}/{})'.format(k, 0, correct[k], total[k]))
+        else:
+            print('{}: {:.2f}% ({}/{})'.format(k, correct[k]/total[k]*100, correct[k], total[k]))
     if len(pred) < len(gt):
         print('WARNING: there are only {} predictions (need {})'.format(len(pred), len(gt)))
 

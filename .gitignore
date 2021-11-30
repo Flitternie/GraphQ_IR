@@ -1,10 +1,10 @@
 .vscode
 *.zip
-dataset*/
-full_sized/
+data/
 exp*/
 bart-base/
 baseline_ckpt/
+.antlr/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

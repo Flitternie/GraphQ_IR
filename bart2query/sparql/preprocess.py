@@ -7,8 +7,6 @@ import json
 import pickle
 import argparse
 import numpy as np
-from nltk import word_tokenize
-from collections import Counter
 from itertools import chain
 from tqdm import tqdm
 import re
@@ -73,7 +71,7 @@ def main():
                 vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
 
     if not os.path.isdir(args.output_dir):
-        os.mkdir(args.output_dir)
+        os.makedirs(args.output_dir, exist_ok = True)
     fn = os.path.join(args.output_dir, 'vocab.json')
     print('Dump vocab to {}'.format(fn))
     with open(fn, 'w') as f:
@@ -83,14 +81,12 @@ def main():
     
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
     
-    for name, dataset in zip(('train', 'val', 'test', 'test_ans'), (train_set, val_set, test_set, test_set)):
-        # print('Encode {} set'.format(name))
-        outputs = encode_dataset(dataset, vocab, tokenizer, name=='test')
+    for name, dataset in zip(('train', 'val', 'test'), (train_set, val_set, test_set)):
+        outputs = encode_dataset(dataset, vocab, tokenizer)
         assert len(outputs) == 5
-        # print('shape of input_ids of questions, attention_mask of questions, input_ids of sparqls, choices and answers:')
         with open(os.path.join(args.output_dir, '{}.pt'.format(name)), 'wb') as f:
             for o in outputs:
-                # print(o.shape)
                 pickle.dump(o, f)
+                
 if __name__ == '__main__':
     main()

@@ -1,0 +1,136 @@
+<title>fig help</title>
+
+Click <a href="key-bindings.html">here</a> for a quick reference for the
+key bindings.
+
+<h1>fig</h1>
+
+fig is a system to help people who run many experiments/simulations with many
+different parameters keep their results organized.<p>
+
+Concretely, suppose you a program that can be run with many different
+settings and each run generates some output files.
+fig will automatically place each run in a separate directory
+and provides a powerful web interface to view/organize these runs.<p>
+
+<h3>Tutorial</h3>
+
+The web interface has been designed to be (1) uniform in design, (2)
+powerful, and (3) keyboard-friendly.  There is a learning curve, but
+advanced users will hopefully find it very easy to do what they
+want.<p>
+
+At a high-level, the interface provides a way of navigating and
+operating on a virtual file system.  Each item in this file system is
+identified by a trail.  Each item also has any number of children.
+A standard set of navigation operations allows one to traverse
+the file system to the desired trail.  At any item,
+pretty much the same set of operations for creating, deleting, copying
+items apply.<p>
+
+<ol>
+  <li>Now let's go to the servlet <tt>http://localhost:8080/fig</tt>.
+  Essentially, the fig interface sits lightly on top of a virtual file system;
+  each table displays a trail (path) to some item or view.
+  We are currently at the root item.
+  You should see a table with two rows/items: <tt>baskets</tt> and <tt>domains</tt>.
+  <li>Let's go into <tt>domains</tt> by clicking anywhere on the row;
+  note that the black arrow on the left points to that row.
+  Click on that arrow.  If you like the keyboard, use vi keys
+  (<tt>h, j, k, l</tt>)
+  to move around and then press <tt>o</tt> to open it.
+  <li>
+  Now, we are in the domains view, which should be empty.
+  Each domain corresponds to a project you are working on,
+  and concretely, a different <tt>state/execs</tt> directory.
+  To create a new domain, hit <tt>shift-n</tt> (you can also find it in the actions menu).
+  Type in <tt>examples</tt> for the item name.
+  A new row should appear.
+  We can edit the description by double-clicking on appropriate cell
+  (row <tt>examples</tt>, column <tt>description</tt>)---or navigate over
+  and press <tt>shift-e</tt>.
+  This description will be saved on disk.
+  If you don't believe me, check out <tt>fig/servlet/var/domains/examples.index</tt>.
+  We also need to edit the <tt>domainDir</tt> field,
+  which we should set to full path the <tt>state</tt> directory
+  that we created, for example, <tt>/home/pliang/fig/examples/examples/state</tt>.
+  <li>Let's proceed on into <tt>examples</tt> (<tt>o</tt> or click on the left arrow).
+  Now, we are at the domain item identified by trail <tt>domains | examples</tt>.
+  Proceed into <tt>execs</tt>.
+  If you see all zeros, don't be alarmed;
+  just hit <tt>shift-r</tt> to reload; you might have to do this more than once.
+  The reason for this odd behavior is that the servlet doesn't
+  keep you hanging while it goes out to disk to reloads, so it
+  just gives you what it has, but your reload request prompts
+  the servlet to load so next time, things should be up to date.
+  <li>Go into <tt>(all)</tt>, and we should see our execution
+  along with some information such as the time, status, memory.
+  <li>We can make notes about each run by modifying the <tt>note</tt>
+  column at the end (double-click or type <tt>shift-e</tt> on it).
+</ol>
+
+<h4>Adding new fields</h4>
+<ol>
+  <li>First, let's start with adding another column to this table.
+  Hit <tt>ctrl-d</tt> to replicate the table.
+  (Use <tt>ctrl-f</tt> and <tt>ctrl-b</tt> to jump between tables.)
+  <li>On the lower table, let's go back up the trail to the parent by
+  hitting <tt>u</tt> or click the black upward-pointing arrow in the
+  upper-left corner of the table.
+  <li>We should be back at the domain item.
+  Go into <tt>fieldSpecs</tt>.  A fieldSpec (field specification)
+  describes which columns of a table should be displayed.
+  <li>Let's create a new fieldSpec by hitting <tt>shift-n</tt>
+  and calling it <tt>default</tt>.
+  <li>Now, we're going to copy <tt>(execs)</tt> into default.
+  To do this, check <tt>(execs)</tt> by clicking on the checkbox
+  or navigating over and hitting <tt>x</tt>.
+  Type <tt>y</tt> to add it to the clipboard (basket).
+  Go into <tt>default</tt> and press <tt>p</tt> to paste it.
+  Hit <tt>shift-z</tt> to clear the clipboard.
+  <li>Now, to create a new field, hit <tt>shift-n</tt>
+  and call it <tt>result</tt>.
+  Edit the <tt>data</tt> to be <tt>$count.map:result</tt>
+  (double-click on it or press <tt>shift-e</tt>).
+  This will tell the servlet to look in the <tt>count.map</tt>
+  file and pull out the line with <tt>result</tt> as the key.
+  Also edit <tt>displayName</tt> to be <tt>result</tt>.
+  <li>Now, go to the table that's on the trail <tt>domains | examples | execs | (all)</tt>
+  and hit <tt>shift-r</tt> to refresh.
+  A new <tt>result</tt> column should show up with the value 12.
+</ol>
+
+<h4>Manipulating executions</h4>
+<ol>
+  <li>If we have a lot of executions, we want to group them
+  into folders rather than looking at <tt>(all)</tt>.
+  Go up to <tt>domains | examples | execs</tt> by pressing <tt>u</tt>.
+  <li>Hit <tt>shift-n</tt> to create a new execution view.
+  If you're lazy, you can leave the name empty, and it will
+  automatically fill it in with a distinct number
+  (there's always the description field if you want to be informative).
+  <li>Go into <tt>(all)</tt>, check <tt>0.exec</tt>,
+  copy it to the clipboard by hitting <tt>y</tt>,
+  go back into <tt>domains | examples | execs | 0</tt>
+  and paste it by hitting <tt>p</tt>.
+  No files are actually copied: we are simply manipulating
+  references.
+  <li>We can also remove an execution from this view:
+  check it and type <tt>a r enter</tt> (note that this is actually
+  selecting the action from the actions menu).
+  Important: for this removal to have any effect,
+  we need to save it by typing <tt>a s enter</tt>.
+  Note that removal doesn't delete anything on disk;
+  it simply removes it from this view.
+  <li>Purging is different.  To purge an execution,
+  check it and type <tt>a p enter</tt>.
+  After purging, we won't be able to see it on the web servlet 
+  anymore (but in fact, the file was just renamed to
+  <tt>0.exec.purged</tt>, which you have to go delete manually).
+  <li>While an execution is running
+  type <tt>a k enter</tt> to kill it.
+  All this does is create a file called <tt>kill</tt>
+  in the execution directory, which is picked up by <tt>execwrapper</tt>.
+  Press <tt>shift-r</tt> to refresh and note that the status
+  has changed from <tt>running</tt> to <tt>killed</tt>.
+</ol>

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+  echo "Usage: `basename $0` <start|stop|stat> [q args]"
+  exit 1
+fi
+
+cmd=$1; shift
+
+if [ "$cmd" == "start" ]; then
+  if [ $# != 1 ]; then
+    echo "Usage: `basename $0` start <host: e.g., r23, nlp>"
+    exit 1
+  fi
+  q -mode worker -masterHost $1 -basePath / >& /dev/null &
+elif [ "$cmd" == "stop" ]; then
+  echo "Killing `ps --noheaders -C q | wc -l` q processes"
+  killall -g q 2> /dev/null
+elif [ "$cmd" == "stat" ]; then
+  ps --noheaders -C q -o pid,cmd
+else
+  echo "Invalid command: $cmd"
+fi

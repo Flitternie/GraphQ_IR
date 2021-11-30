@@ -1,0 +1,28 @@
+#!/usr/bin/ruby
+
+def gen(srcFile, destFile, map)
+  puts "generate #{srcFile} -> #{destFile}"
+  out = open(destFile, "w")
+  IO.foreach(srcFile) { |line|
+    map.each_pair { |k,v|
+      line = line.gsub(/\w+\/\*#{k}\*\//, v)
+    }
+    out.puts line
+  }
+  out.close
+end
+
+gen("IntVec.java", "DoubleVec.java",
+  { "type" => "double", "Type" => "Double", "TypeVec" => "DoubleVec" })
+gen("IntVec.java", "FloatVec.java",
+  { "type" => "float", "Type" => "Float", "TypeVec" => "FloatVec" })
+
+gen("IntIntVec.java", "IntDoubleVec.java",
+  { "type1" => "int", "Type1" => "Integer", "type2" => "double", "Type2" => "Double", "TypeVec" => "IntDoubleVec" })
+gen("IntIntVec.java", "StringIntVec.java",
+  { "type1" => "String", "Type1" => "String", "type2" => "int", "Type2" => "Integer", "TypeVec" => "StringIntVec" })
+gen("IntIntVec.java", "StringDoubleVec.java",
+  { "type1" => "String", "Type1" => "String", "type2" => "double", "Type2" => "Double", "TypeVec" => "StringDoubleVec" })
+
+gen("IntIntIntVec.java", "IntIntDoubleVec.java",
+  { "type1" => "int", "Type1" => "Integer", "type2" => "int", "Type2" => "Integer", "type3" => "double", "Type3" => "Double", "TypeVec" => "IntIntDoubleVec" })

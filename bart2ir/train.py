@@ -15,9 +15,7 @@ import torch.optim as optim
 import logging
 import time
 from utils.lr_scheduler import get_linear_schedule_with_warmup
-
-import torch.nn.functional as F
-from nltk.translate.bleu_score import sentence_bleu
+from .predict import validate
 
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -28,44 +26,6 @@ logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
 import warnings
 warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql query
-
-
-def cal_performance(pred, gold, tokenizer):
-    batch_bleu = 0.0
-    batch_correct = 0
-    for x, y in zip(pred, gold):
-        y = tokenizer.decode(y, skip_special_tokens = True, clean_up_tokenization_spaces = True)
-        x = tokenizer.decode(x, skip_special_tokens = True, clean_up_tokenization_spaces = True)
-        batch_bleu += sentence_bleu([y], x)
-        batch_correct += x==y
-    return batch_bleu, batch_correct
-
-def evaluate(model, tokenizer, data, device, args):
-    model.eval()
-    total_bleu, total_correct = 0.0, 0.0
-    count = 0
-    with torch.no_grad():
-        for batch in tqdm(data, total=len(data)):
-            source_ids, source_mask, choices, target_ids, answer = [x.to(device) for x in batch]
-            outputs = model.module.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            ) if hasattr(model, "module") else model.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            ) 
-            assert len(outputs) == len(target_ids)
-            count += len(outputs)
-            batch_bleu, batch_correct = cal_performance(outputs, target_ids, tokenizer)
-            total_bleu += batch_bleu
-            total_correct += batch_correct
-        
-        print(count)
-        acc = total_correct/count
-        avg_bleu = total_bleu/count
-        logging.info('accuracy: {}, bleu: {}'.format(acc, avg_bleu))
-
-        return acc
 
 def train(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -83,8 +43,7 @@ def train(args):
         train_loader = DataLoader(vocab_json, train_pt, args.batch_size, training=True, pretrain=args.pretrain)
     val_loader = DataLoader(vocab_json, val_pt, args.batch_size, training=False, pretrain=False)
     
-    vocab = train_loader.vocab
-    
+
     if args.local_rank in [-1, 0]:
         logging.info("Create model.........")
     config_class, model_class, tokenizer_class = (BartConfig, BartForConditionalGeneration, BartTokenizer)
@@ -145,20 +104,21 @@ def train(args):
         logging.info("===================Dev==================")
     
     tr_loss, logging_loss = 0.0, 0.0
-    model.zero_grad()
-    prefix = 0
     best_acc, current_acc = 0.0, 0.0
+    model.zero_grad()
+    # prefix = 0
     if args.local_rank in [-1, 0]:
-        # current_acc = evaluate(model, tokenizer, val_loader, device, args)
         print("Current performance on validation set: %f" % (current_acc))
     
-    args.logging_steps = round(len(train_dataset)/args.batch_size)
+    args.logging_steps = round(len(train_dataset)/args.batch_size) // 2
     args.save_steps = args.logging_steps
+    epochs_not_improving = 0
     
     for epoch_i in range(int(args.num_train_epochs)):
         if args.n_gpus > 1:
             train_loader.sampler.set_epoch(epoch_i)
         pbar = ProgressBar(n_total=len(train_loader), desc='Training')
+        epochs_not_improving += 1
         for step, batch in enumerate(train_loader):
             # Skip past any already trained steps if resuming training
             if steps_trained_in_current_epoch > 0:
@@ -197,10 +157,11 @@ def train(args):
 
             if args.logging_steps > 0 and global_step % args.logging_steps == 0 and args.local_rank in [-1, 0]:
                 logging.info("===================Dev==================")
-                current_acc = evaluate(model, tokenizer, val_loader, device, args)
+                current_acc = validate(args, model, val_loader, device, tokenizer)
                 print("Current best performance on validation set: %f" % (best_acc))
 
             if args.save_steps > 0 and global_step % args.save_steps == 0 and current_acc > best_acc and args.local_rank in [-1, 0]:
+                epochs_not_improving = 0
                 best_acc = current_acc
                 print("Best performance on validation set updated: %f" % (best_acc))
                 # Save model checkpoint
@@ -224,6 +185,9 @@ def train(args):
         
         if 'cuda' in str(device):
             torch.cuda.empty_cache()
+        if epochs_not_improving > args.early_stopping:
+            logging.info("%d epochs not improving, training early stopped" % epochs_not_improving)
+            return global_step, tr_loss / global_step
     
     return global_step, tr_loss / global_step
 
@@ -235,19 +199,20 @@ def main():
     parser.add_argument('--output_dir', required=True)
 
     parser.add_argument('--save_dir', required=True, help='path to save checkpoints and logs')
-    parser.add_argument('--model_name_or_path', required = True)
+    parser.add_argument('--model_name_or_path', required=True, help='pretrained language models')
     parser.add_argument('--ckpt')
 
     # training parameters
     parser.add_argument('--weight_decay', default=1e-5, type=float)
     parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--seed', type=int, default=666, help='random seed')
-    parser.add_argument('--learning_rate', default=3e-5, type = float)
-    parser.add_argument('--num_train_epochs', default=25, type = int)
-    parser.add_argument('--save_steps', default=448, type = int)
-    parser.add_argument('--logging_steps', default=448, type = int)
-    parser.add_argument('--warmup_proportion', default=0.1, type = float,
-                        help="Proportion of training to perform linear learning rate warmup for,E.g., 0.1 = 10% of training.")
+    parser.add_argument('--learning_rate', default=3e-5, type=float)
+    parser.add_argument('--num_train_epochs', default=25, type=int)
+    parser.add_argument('--save_steps', default=448, type=int)
+    parser.add_argument('--logging_steps', default=448, type=int)
+    parser.add_argument('--early_stopping', default=5, type=int)
+    parser.add_argument('--warmup_proportion', default=0.1, type=float,
+                        help="Proportion of training to perform linear learning rate warmup for,E.g., 0.1=10% of training.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
