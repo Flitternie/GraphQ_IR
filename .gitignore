@@ -1,12 +1,18 @@
 .vscode
-*.zip
 data/
 exp*/
 bart-base/
 baseline_ckpt/
 .antlr/
+lib/
+evaluator/
+logging/
+_*/
+*.zip
 *.java
 *.class
+*.log
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

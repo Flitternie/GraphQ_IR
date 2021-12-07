@@ -1,6 +1,0 @@
-<project>
-  <target name="compile">
-    <path id="lib.path"><fileset dir="external"/></path>
-    <javac srcdir="src/main/java" destdir="classes" classpathref="lib.path" debug="true"/>
-  </target>
-</project>

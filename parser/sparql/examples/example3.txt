@@ -1,5 +1,0 @@
-SELECT ?node ?title
- WHERE{
-  ?node <http://purl.org/dc/elements/1.1/title> ?title .
- }
- LIMIT 1
