@@ -35,7 +35,7 @@ def train(args):
     elif args.mode == 'sparql':
         from bart2query.sparql.predict import validate
     elif args.mode == 'lambda':
-        from bart2query.lamb.predict import validate
+        from bart2query.overnight.predict import validate
     elif args.mode == 'ir':
         from bart2ir.predict import validate
     else:

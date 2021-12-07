@@ -51,34 +51,16 @@ def sequence_to_program(input):
         inputs_list.append(inputs)
     return func_list, inputs_list
 
-
-def vis(args, kb, model, data, device, tokenizer):
-    model = model.module if hasattr(model, "module") else model
-    while True:
-        # text = 'Who is the father of Tony?'
-        # text = 'Donald Trump married Tony, where is the place?'
-        text = input('Input your question:')
-        with torch.no_grad():
-            input_ids = tokenizer.batch_encode_plus([text], max_length = 512, pad_to_max_length = True, return_tensors="pt", truncation = True)
-            source_ids = input_ids['input_ids'].to(device)
-            outputs = model.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            )
-            outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in outputs]
-            outputs = [post_process(output) for output in outputs]
-            print(outputs[0])
-
 def validate(args, kb, model, data, device, tokenizer):
     model.eval()
     model = model.module if hasattr(model, "module") else model
 
     if "new" in args.input_dir:
         from .executor_rule_new import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./dataset_new/", 'kb.json'))
+        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
     else:
         from .executor_rule import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./dataset_full/", 'kb.json'))
+        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_full/", 'kb.json'))
 
     count, correct = 0, 0
     
@@ -119,10 +101,10 @@ def predict(args, kb, model, data, device, tokenizer):
 
     if "new" in args.input_dir:
         from .executor_rule_new import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./dataset_new/", 'kb.json'))
+        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
     else:
         from .executor_rule import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./dataset_full/", 'kb.json'))
+        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_full/", 'kb.json'))
 
     with torch.no_grad():
         all_outputs = []

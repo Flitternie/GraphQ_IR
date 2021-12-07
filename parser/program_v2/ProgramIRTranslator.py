@@ -35,7 +35,7 @@ class IR_translator():
         self.walker = ParseTreeWalker() 
 
     def program_to_ir(self, program):
-        # program = get_program_seq(program)
+        program = get_program_seq(program)
         input_stream = InputStream(program)
         lexer = ProgramLexer(input_stream)       
         token_stream = CommonTokenStream(lexer)

@@ -7,7 +7,7 @@ import difflib
 
 class IRCorrector():
     def __init__(self):
-        self.rule_executor = RuleExecutor(os.path.join("./dataset_new/", 'kb.json'))
+        self.rule_executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
         self.correct_num = 0
         self.preprocess()
     

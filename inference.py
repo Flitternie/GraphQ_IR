@@ -27,7 +27,7 @@ def inference(args):
     elif args.mode == 'sparql':
         from bart2query.sparql.predict import validate, predict
     elif args.mode == 'lambda':
-        from bart2query.lamb.predict import validate, predict
+        from bart2query.overnight.predict import validate, predict
     elif args.mode == 'ir':
         from bart2ir.predict import validate, predict
 

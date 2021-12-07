@@ -36,9 +36,9 @@ def encode_dataset(dataset, vocab, tokenizer, args):
     answers = []
 
     if "new" in args.data_dir and "new" in args.input_dir:
-        from KqaPro_Parser.program_v2 import ProgramIRTranslator 
+        from parser.program_v2 import ProgramIRTranslator 
     else:
-        from KqaPro_Parser.program import ProgramIRTranslator 
+        from parser.program import ProgramIRTranslator 
     translator = ProgramIRTranslator.IR_translator()
 
     for item in tqdm(dataset):

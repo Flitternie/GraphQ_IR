@@ -31,7 +31,7 @@ def cal_performance(pred, gold, tokenizer):
     return batch_bleu, batch_correct
 
 def exec_performance(pred_irs, kb):
-    from KqaPro_Parser.ir.SparqlTranslator import Sparql_translator
+    from parser.ir.SparqlTranslator import Sparql_translator
     from bart2query.sparql.sparql_engine import get_sparql_answer
     from bart2query.sparql.predict import whether_equal, post_process
     
