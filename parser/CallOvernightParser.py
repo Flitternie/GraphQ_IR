@@ -9,8 +9,8 @@ from string import Template
 from antlr4 import *
 from antlr4.InputStream import InputStream
 
-from .overnight.overnightLexer import overnightLexer
-from .overnight.overnightParser import overnightParser
+from .overnight.OvernightLexer import OvernightLexer
+from .overnight.OvernightParser import OvernightParser
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import ParseCancellationException
@@ -22,9 +22,9 @@ class ParsingOvernight():
 
     def parse(self, line):
         input_stream = InputStream(line)
-        lexer = overnightLexer(input_stream)       
+        lexer = OvernightLexer(input_stream)       
         token_stream = CommonTokenStream(lexer)
-        parser = overnightParser(token_stream)
+        parser = OvernightParser(token_stream)
         
         try:
             tree = parser.root()

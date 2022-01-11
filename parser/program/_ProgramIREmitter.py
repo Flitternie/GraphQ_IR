@@ -27,7 +27,7 @@ class IREmitter(ProgramListener):
         self.symbolOP_vocab = { "=": "is", 
                                 "<": "larger than", 
                                 ">": "smaller than", 
-                                "!=": "not is" }
+                                "!=": "is not" }
         self.stringOP_vocab = { "largest": "largest", 
                                 "smallest": "smallest", 
                                 "greater": "larger", 

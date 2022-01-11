@@ -44,7 +44,7 @@ Top
     ;
 
 Ones
-    : 'ones'
+    : 'ones' | 'entities'
     ;
 
 The
@@ -57,6 +57,10 @@ Whose
 
 That
     : 'that'
+    ;
+
+Has
+    : 'has'
     ;
 
 LB
@@ -83,12 +87,20 @@ Or
     : 'or'
     ;
 
+Sum
+    : 'sum'
+    ;
+
+Average
+    : 'average'
+    ;
+
 Is
     : 'is' | 'equal to'
     ;
 
-NotIs
-    : 'not is' | 'not equal to'
+IsNot
+    : 'is not' | 'not equal to'
     ;
 
 LargerThan
@@ -108,11 +120,11 @@ AtMost
     ;
 
 Largest
-    : 'largest'
+    : 'largest' | 'most'
     ;
 
 Smallest
-    : 'smallest'
+    : 'smallest' | 'least'
     ;
 
 Text
@@ -130,6 +142,10 @@ Date
 Year
     : 'year'
     ;   
+
+Time
+    : 'time'
+    ;
 
 SPACE
     : ' ' ->skip

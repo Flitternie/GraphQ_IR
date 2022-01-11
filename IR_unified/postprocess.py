@@ -38,7 +38,7 @@ def encode_dataset(dataset, vocab, tokenizer, args):
     if "new" in args.data_dir and "new" in args.input_dir:
         from parser.program_v2 import ProgramIRTranslator 
     else:
-        from parser.program import ProgramIRTranslator 
+        from parser._program import ProgramIRTranslator 
     translator = ProgramIRTranslator.IR_translator()
 
     for item in tqdm(dataset):

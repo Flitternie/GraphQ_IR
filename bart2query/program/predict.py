@@ -80,16 +80,14 @@ def validate(args, kb, model, data, device, tokenizer):
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in all_outputs]
         given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
         
-        with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
-            for a, output in tqdm(zip(given_answer, outputs)):
-                func_list, inputs_list = sequence_to_program(output)
-                ans = executor.forward(func_list, inputs_list, ignore_error = True)
-                if ans == None:
-                    ans = 'no'
-                if ans == a:
-                    correct += 1
-                f.write(ans + '\n')
-                count += 1
+        for a, output in tqdm(zip(given_answer, outputs)):
+            func_list, inputs_list = sequence_to_program(output)
+            ans = executor.forward(func_list, inputs_list, ignore_error = True)
+            if ans == None:
+                ans = 'no'
+            if ans == a:
+                correct += 1
+            count += 1
         
         acc = correct / count
         logging.info('acc: {}'.format(acc))

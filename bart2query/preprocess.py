@@ -19,6 +19,35 @@ def get_program_seq(program):
     seq = '<b>'.join(seq)
     return seq
 
+def get_program_seq_ordered(program, idx=-1):
+    func = program[idx]
+
+    if len(func['dependencies']) == 0:
+        seq = func['function'] + '(' + '<c>'.join(func['inputs']) + ')'
+
+    elif len(func['dependencies']) == 1:
+        child_idx = func['dependencies'][0]
+        child_seq = get_program_seq_ordered(program, child_idx)
+        current_seq = func['function'] + '(' + '<c>'.join(func['inputs']) + ')'
+        seq = child_seq + '<b>' + current_seq
+
+    elif len(func['dependencies']) == 2:
+        left_idx = func['dependencies'][0]
+        left_seq = get_program_seq_ordered(program, left_idx)
+        right_idx = func['dependencies'][1]
+        right_seq = get_program_seq_ordered(program, right_idx)
+
+        current_seq = func['function'] + '(' + '<c>'.join(func['inputs']) + ')'
+
+        if func['function'] in ['And', 'Or', 'SelectBetween'] and left_seq > right_seq:
+            seq = right_seq + '<b>' + left_seq + '<b>' + current_seq
+        else:
+            seq = left_seq + '<b>' + right_seq + '<b>' + current_seq
+    else:
+        raise ValueError("Functions are not allowed to have more than 2 dependencies")
+
+    return seq
+
 def encode_dataset(mode, dataset, vocab, tokenizer, test = False):
     questions = []
     target_queries = []
@@ -31,7 +60,7 @@ def encode_dataset(mode, dataset, vocab, tokenizer, test = False):
         choices.append(_)
         if not test:
             if mode == 'program':
-                target_query = get_program_seq(item['program'])  
+                target_query = get_program_seq_ordered(item['program'])  
             elif mode == 'sparql':
                 target_query = item['sparql']
             target_queries.append(target_query)

@@ -1,4 +1,4 @@
-# Generated from ./KqaPro_Parser/ir/UnifiedIRParser.g4 by ANTLR 4.9.2
+# Generated from ./UnifiedIRParser.g4 by ANTLR 4.9.2
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .UnifiedIRParser import UnifiedIRParser
@@ -77,6 +77,15 @@ class UnifiedIRParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by UnifiedIRParser#selectQuery.
     def exitSelectQuery(self, ctx:UnifiedIRParser.SelectQueryContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#aggregateQuery.
+    def enterAggregateQuery(self, ctx:UnifiedIRParser.AggregateQueryContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#aggregateQuery.
+    def exitAggregateQuery(self, ctx:UnifiedIRParser.AggregateQueryContext):
         pass
 
 
@@ -311,6 +320,51 @@ class UnifiedIRParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by UnifiedIRParser#smallest.
     def exitSmallest(self, ctx:UnifiedIRParser.SmallestContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#sum.
+    def enterSum(self, ctx:UnifiedIRParser.SumContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#sum.
+    def exitSum(self, ctx:UnifiedIRParser.SumContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#average.
+    def enterAverage(self, ctx:UnifiedIRParser.AverageContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#average.
+    def exitAverage(self, ctx:UnifiedIRParser.AverageContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#valueByAggregate.
+    def enterValueByAggregate(self, ctx:UnifiedIRParser.ValueByAggregateContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#valueByAggregate.
+    def exitValueByAggregate(self, ctx:UnifiedIRParser.ValueByAggregateContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#valueByAttribute.
+    def enterValueByAttribute(self, ctx:UnifiedIRParser.ValueByAttributeContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#valueByAttribute.
+    def exitValueByAttribute(self, ctx:UnifiedIRParser.ValueByAttributeContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#valueAtom.
+    def enterValueAtom(self, ctx:UnifiedIRParser.ValueAtomContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#valueAtom.
+    def exitValueAtom(self, ctx:UnifiedIRParser.ValueAtomContext):
         pass
 
 

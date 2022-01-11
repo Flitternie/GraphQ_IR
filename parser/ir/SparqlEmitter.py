@@ -2,9 +2,9 @@ import os
 import re
 from antlr4 import *
 
-from KqaPro_Parser.ir.UnifiedIRLexer import UnifiedIRLexer
-from KqaPro_Parser.ir.UnifiedIRParser import UnifiedIRParser
-from KqaPro_Parser.ir.UnifiedIRParserListener import UnifiedIRParserListener
+from .UnifiedIRLexer import UnifiedIRLexer
+from .UnifiedIRParser import UnifiedIRParser
+from .UnifiedIRParserListener import UnifiedIRParserListener
 
 from bart2query.program.executor_rule_new import RuleExecutor
 
@@ -16,10 +16,24 @@ class strictDict(dict):
             raise KeyError("{} is not a legal key of this strictDict".format(repr(key)))
         dict.__setitem__(self, key, value)
 
-class entitySet(str):
-    def __new__(self, value="", concept=""):
+class entitySet():
+    def __init__(self, value="", concept=""):
+        self.value = str(value)
         self.concept = concept
-        return str.__new__(self, value)
+    
+    def __str__(self):
+        return self.value
+    
+    def __repr__(self):
+        return self.value
+    
+    def __len__(self):
+        return len(self.value)
+
+# class entitySet(str):
+#     def __new__(self, value="", concept=""):
+#         self.concept = concept
+#         return str.__new__(self, value)
 
 class SparqlEmitter(UnifiedIRParserListener):
     def __init__(self):
@@ -389,6 +403,14 @@ class SparqlEmitter(UnifiedIRParserListener):
 
 
 
+    def enterValueAtom(self, ctx: UnifiedIRParser.ValueAtomContext):
+        ctx.slots = strictDict({"valueType": "", "value": ""})
+        return super().enterValueAtom(ctx)
+    
+    def exitValueAtom(self, ctx: UnifiedIRParser.ValueAtomContext):
+        ctx.parentCtx.slots["valueType"] = ctx.slots["valueType"]
+        ctx.parentCtx.slots["value"] = ctx.slots["value"]
+        return super().exitValueAtom(ctx)
 
     def enterEntity(self, ctx: UnifiedIRParser.EntityContext):
         ctx.slots = strictDict({"string": ""})

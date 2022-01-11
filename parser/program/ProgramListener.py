@@ -1,4 +1,4 @@
-# Generated from ./KqaPro_Parser/program/Program.g4 by ANTLR 4.9.2
+# Generated from ./Program.g4 by ANTLR 4.9.2
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .ProgramParser import ProgramParser
@@ -53,24 +53,6 @@ class ProgramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ProgramParser#selectAmongQuery.
-    def enterSelectAmongQuery(self, ctx:ProgramParser.SelectAmongQueryContext):
-        pass
-
-    # Exit a parse tree produced by ProgramParser#selectAmongQuery.
-    def exitSelectAmongQuery(self, ctx:ProgramParser.SelectAmongQueryContext):
-        pass
-
-
-    # Enter a parse tree produced by ProgramParser#selectBetweenQuery.
-    def enterSelectBetweenQuery(self, ctx:ProgramParser.SelectBetweenQueryContext):
-        pass
-
-    # Exit a parse tree produced by ProgramParser#selectBetweenQuery.
-    def exitSelectBetweenQuery(self, ctx:ProgramParser.SelectBetweenQueryContext):
-        pass
-
-
     # Enter a parse tree produced by ProgramParser#attributeSatisfyQuery.
     def enterAttributeSatisfyQuery(self, ctx:ProgramParser.AttributeSatisfyQueryContext):
         pass
@@ -107,12 +89,30 @@ class ProgramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ProgramParser#entitySetByFilter.
-    def enterEntitySetByFilter(self, ctx:ProgramParser.EntitySetByFilterContext):
+    # Enter a parse tree produced by ProgramParser#entitySetByAttribute.
+    def enterEntitySetByAttribute(self, ctx:ProgramParser.EntitySetByAttributeContext):
         pass
 
-    # Exit a parse tree produced by ProgramParser#entitySetByFilter.
-    def exitEntitySetByFilter(self, ctx:ProgramParser.EntitySetByFilterContext):
+    # Exit a parse tree produced by ProgramParser#entitySetByAttribute.
+    def exitEntitySetByAttribute(self, ctx:ProgramParser.EntitySetByAttributeContext):
+        pass
+
+
+    # Enter a parse tree produced by ProgramParser#entitySetPopulation.
+    def enterEntitySetPopulation(self, ctx:ProgramParser.EntitySetPopulationContext):
+        pass
+
+    # Exit a parse tree produced by ProgramParser#entitySetPopulation.
+    def exitEntitySetPopulation(self, ctx:ProgramParser.EntitySetPopulationContext):
+        pass
+
+
+    # Enter a parse tree produced by ProgramParser#entitySetByConcept.
+    def enterEntitySetByConcept(self, ctx:ProgramParser.EntitySetByConceptContext):
+        pass
+
+    # Exit a parse tree produced by ProgramParser#entitySetByConcept.
+    def exitEntitySetByConcept(self, ctx:ProgramParser.EntitySetByConceptContext):
         pass
 
 
@@ -125,6 +125,15 @@ class ProgramListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ProgramParser#entitySetByRank.
+    def enterEntitySetByRank(self, ctx:ProgramParser.EntitySetByRankContext):
+        pass
+
+    # Exit a parse tree produced by ProgramParser#entitySetByRank.
+    def exitEntitySetByRank(self, ctx:ProgramParser.EntitySetByRankContext):
+        pass
+
+
     # Enter a parse tree produced by ProgramParser#entitySetByOP.
     def enterEntitySetByOP(self, ctx:ProgramParser.EntitySetByOPContext):
         pass
@@ -134,12 +143,12 @@ class ProgramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ProgramParser#entitySetNested.
-    def enterEntitySetNested(self, ctx:ProgramParser.EntitySetNestedContext):
+    # Enter a parse tree produced by ProgramParser#entitySetByRelation.
+    def enterEntitySetByRelation(self, ctx:ProgramParser.EntitySetByRelationContext):
         pass
 
-    # Exit a parse tree produced by ProgramParser#entitySetNested.
-    def exitEntitySetNested(self, ctx:ProgramParser.EntitySetNestedContext):
+    # Exit a parse tree produced by ProgramParser#entitySetByRelation.
+    def exitEntitySetByRelation(self, ctx:ProgramParser.EntitySetByRelationContext):
         pass
 
 
@@ -278,21 +287,12 @@ class ProgramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ProgramParser#selectAmong.
-    def enterSelectAmong(self, ctx:ProgramParser.SelectAmongContext):
+    # Enter a parse tree produced by ProgramParser#select.
+    def enterSelect(self, ctx:ProgramParser.SelectContext):
         pass
 
-    # Exit a parse tree produced by ProgramParser#selectAmong.
-    def exitSelectAmong(self, ctx:ProgramParser.SelectAmongContext):
-        pass
-
-
-    # Enter a parse tree produced by ProgramParser#selectBetween.
-    def enterSelectBetween(self, ctx:ProgramParser.SelectBetweenContext):
-        pass
-
-    # Exit a parse tree produced by ProgramParser#selectBetween.
-    def exitSelectBetween(self, ctx:ProgramParser.SelectBetweenContext):
+    # Exit a parse tree produced by ProgramParser#select.
+    def exitSelect(self, ctx:ProgramParser.SelectContext):
         pass
 
 
@@ -500,6 +500,24 @@ class ProgramListener(ParseTreeListener):
 
     # Exit a parse tree produced by ProgramParser#qvalue.
     def exitQvalue(self, ctx:ProgramParser.QvalueContext):
+        pass
+
+
+    # Enter a parse tree produced by ProgramParser#topk.
+    def enterTopk(self, ctx:ProgramParser.TopkContext):
+        pass
+
+    # Exit a parse tree produced by ProgramParser#topk.
+    def exitTopk(self, ctx:ProgramParser.TopkContext):
+        pass
+
+
+    # Enter a parse tree produced by ProgramParser#start.
+    def enterStart(self, ctx:ProgramParser.StartContext):
+        pass
+
+    # Exit a parse tree produced by ProgramParser#start.
+    def exitStart(self, ctx:ProgramParser.StartContext):
         pass
 
 

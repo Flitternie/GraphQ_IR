@@ -56,7 +56,7 @@ def train(args):
         train_loader = DataLoader(vocab_json, train_pt, args.batch_size, training=True, pretrain=args.pretrain)
     val_loader = DataLoader(vocab_json, val_pt, args.batch_size, training=False, pretrain=False)
 
-    kb = DataForSPARQL(os.path.join("./data/kqapro/dataset_full/", 'kb.json'))
+    kb = DataForSPARQL(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
     
     if args.local_rank in [-1, 0]:
         logging.info("Create model.........")
@@ -66,7 +66,6 @@ def train(args):
     model.resize_token_embeddings(len(tokenizer))
     
     if args.n_gpus > 1:
-        # model = nn.DataParallel(model)
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model).cuda()
         model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
     else:

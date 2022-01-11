@@ -40,6 +40,10 @@ selectQuery
     : Select filterByRank Among entitySet
     ;
 
+aggregateQuery
+    : What aggregateOP Of valueSet
+    ;
+
 verify
     : entitySet filterByAttribute filterByQualifier? #verifyByAttribute
     | entitySet filterByPredicate entitySet filterByQualifier? #verifyByPredicate
@@ -73,27 +77,28 @@ entitySet
     ;
 
 filterFromEntitySet
-    : concept? entitySet? filterByAttribute filterByQualifier? #entitySetByAttribute
-    | concept? entitySet? filterByPredicate entitySet filterByQualifier? #entitySetByPredicate
+    : ( concept entitySet? | concept? entitySet ) filterByAttribute filterByQualifier? #entitySetByAttribute
+    | ( concept entitySet? | concept? entitySet ) filterByPredicate entitySet filterByQualifier? #entitySetByPredicate
     | concept entitySet? #entitySetByConcept
+    | entitySet filterByRank #entitySetByRank 
     ;
 
 filterByRank
-    : ( Top number )? stringOP attribute 
+    : ( That Has )? ( Top number )? stringOP attribute 
     ;
 
 filterByAttribute
-    : Whose? attribute symbolOP valueType? value
-    | Whose? attribute symbolOP attribute Of entitySet
+    : Whose? attribute symbolOP valueSet
     ;
 
 filterByPredicate
     : That? predicate direction? To
     | That? predicate direction? To symbolOP? number
+    | That? predicate direction? To stringOP
     ;
 
 filterByQualifier
-    : LB qualifier symbolOP valueType? value RB
+    : LB qualifier symbolOP valueSet RB
     ;
 
 direction
@@ -108,7 +113,7 @@ setOP
 
 symbolOP
     : Is #equal
-    | NotIs #notEqual
+    | IsNot #notEqual
     | LargerThan #larger
     | SmallerThan #smaller
     | AtLeast #largerEqual
@@ -120,11 +125,23 @@ stringOP
     | Smallest #smallest
     ;
 
+aggregateOP
+    : Sum #sum
+    | Average #average
+    ;
+
+valueSet
+    : aggregateOP Of valueSet #valueByAggregate
+    | attribute Of entitySet #valueByAttribute
+    | valueType? value #valueAtom
+    ;
+
 valueType
     : Text #text
     | Quantity #quantity
     | Date #date
     | Year #year
+    | Time #time
     ;
 
 entity

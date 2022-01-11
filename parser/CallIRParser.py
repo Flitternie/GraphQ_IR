@@ -11,7 +11,6 @@ from antlr4.InputStream import InputStream
 
 from .ir.UnifiedIRLexer import UnifiedIRLexer
 from .ir.UnifiedIRParser import UnifiedIRParser
-# from .ir.UnifiedIRParserListener import UnifiedIRParserListener
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import ParseCancellationException

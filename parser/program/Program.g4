@@ -12,8 +12,6 @@ query
     | howManyEntityQuery 
     | whatAttributeQuery 
     | whatRelationQuery 
-    | selectAmongQuery 
-    | selectBetweenQuery 
     | attributeSatisfyQuery 
     | whatAttributeQualifierQuery 
     | whatRelationQualifierQuery ) EOF
@@ -35,14 +33,6 @@ whatRelationQuery
     : entitySetGroup queryRelation
     ;
 
-selectAmongQuery
-    : entitySet selectAmong
-    ;
-
-selectBetweenQuery
-    : entitySetGroup selectBetween
-    ;
-
 attributeSatisfyQuery
     : entitySet ( queryAttributeUnderCondition | queryAttribute )  verify
     ;
@@ -60,10 +50,21 @@ entitySetGroup
     : entitySet entitySet
     ;
 
+// entitySet
+//     : entitySet entitySet setOP # entitySetByOP
+//     | entitySet select # entitySetByRank
+//     | entitySet ( entityFilterByRelation | entityFilterByAttribute ) # entitySetNested
+//     | findAll ( entityFilterByAttribute | entityFilterByConcept ) # entitySetByFilter
+//     | entity # entitySetAtom
+//     ;
+
 entitySet
     : entitySet entitySet setOP # entitySetByOP
-    | entitySet ( entityFilterByRelation | entityFilterByAttribute ) # entitySetNested
-    | findAll ( entityFilterByAttribute | entityFilterByConcept ) # entitySetByFilter
+    | entitySet select # entitySetByRank
+    | entitySet entityFilterByRelation # entitySetByRelation 
+    | entitySet entityFilterByAttribute # entitySetByAttribute
+    | entitySet entityFilterByConcept # entitySetByConcept
+    | findAll # entitySetPopulation
     | entity # entitySetAtom
     ;
 
@@ -131,13 +132,10 @@ queryRelation
     : 'QueryRelation()' 
     ;
 
-selectAmong
-    : 'SelectAmong(' key IN_FUNC_SEP op ')'
+select
+    : 'Select(' key IN_FUNC_SEP op IN_FUNC_SEP topk IN_FUNC_SEP start ')'
     ;
 
-selectBetween
-    : 'SelectBetween(' key IN_FUNC_SEP op ')'
-    ;
 
 queryAttributeUnderCondition
     : 'QueryAttrUnderCondition(' key IN_FUNC_SEP qkey IN_FUNC_SEP qvalue ')'
@@ -244,6 +242,14 @@ qvalue
     | string
     ;
 
+topk
+    : string
+    ;
+
+start
+    : string
+    ;
+
 op
     : symbolOP
     | stringOP
@@ -254,8 +260,7 @@ symbolOP
     ;
 
 stringOP
-    : 'greater' | 'less'
-    | 'largest' | 'smallest'
+    : 'largest' | 'smallest'
     ;
 
 
