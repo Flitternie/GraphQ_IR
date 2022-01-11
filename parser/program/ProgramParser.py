@@ -1,4 +1,4 @@
-# Generated from ./Program.g4 by ANTLR 4.9.2
+# Generated from ./parser/program/Program.g4 by ANTLR 4.9.2
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO
@@ -231,7 +231,7 @@ class ProgramParser ( Parser ):
                       "INTEGER", "DECIMAL", "DOUBLE", "EXPONENT", "DIGIT", 
                       "FUNC_SEP", "IN_FUNC_SEP" ]
 
-    RULE_query = 0
+    RULE_root = 0
     RULE_whatEntityQuery = 1
     RULE_howManyEntityQuery = 2
     RULE_whatAttributeQuery = 3
@@ -291,7 +291,7 @@ class ProgramParser ( Parser ):
     RULE_year = 57
     RULE_number = 58
 
-    ruleNames =  [ "query", "whatEntityQuery", "howManyEntityQuery", "whatAttributeQuery", 
+    ruleNames =  [ "root", "whatEntityQuery", "howManyEntityQuery", "whatAttributeQuery", 
                    "whatRelationQuery", "attributeSatisfyQuery", "whatAttributeQualifierQuery", 
                    "whatRelationQualifierQuery", "entitySetGroup", "entitySet", 
                    "entityFilterByRelation", "entityFilterByAttribute", 
@@ -364,7 +364,7 @@ class ProgramParser ( Parser ):
 
 
 
-    class QueryContext(ParserRuleContext):
+    class RootContext(ParserRuleContext):
         __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
@@ -403,23 +403,23 @@ class ProgramParser ( Parser ):
 
 
         def getRuleIndex(self):
-            return ProgramParser.RULE_query
+            return ProgramParser.RULE_root
 
         def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterQuery" ):
-                listener.enterQuery(self)
+            if hasattr( listener, "enterRoot" ):
+                listener.enterRoot(self)
 
         def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitQuery" ):
-                listener.exitQuery(self)
+            if hasattr( listener, "exitRoot" ):
+                listener.exitRoot(self)
 
 
 
 
-    def query(self):
+    def root(self):
 
-        localctx = ProgramParser.QueryContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 0, self.RULE_query)
+        localctx = ProgramParser.RootContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 0, self.RULE_root)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 125

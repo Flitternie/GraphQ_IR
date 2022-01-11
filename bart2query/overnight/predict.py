@@ -55,13 +55,25 @@ def validate(args, kb, model, data, device, tokenizer):
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for output_id in all_outputs]
         targets = [tokenizer.decode(target_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for target_id in all_targets]
 
-        with open("./%s_results.txt"%args.mode, "w+") as f:
-            for output in outputs:
-                f.write(output.strip() + "\n")
+        # translated_outputs = []
+        # translated_targets = []
+        # from parser.ir.OvernightTranslator import OvernightTranslator
+        # translator = OvernightTranslator()
+        # for output, target, domain_idx in zip(outputs, targets, all_domains):
+        #     translator.set_domain(domain_idx)
+        #     try:
+        #         translated_outputs.append(translator.ir_to_overnight(output))
+        #     except:
+        #         translated_outputs.append("")
+        #     translated_targets.append(translator.ir_to_overnight(target))
+
+        # with open("./%s_results.txt"%args.mode, "w+") as f:
+        #     for output in outputs:
+        #         f.write(output.strip() + "\n")
                 
-        with open("./%s_golds.txt"%args.mode, "w+") as f:
-            for output in targets:
-                f.write(output.strip() + "\n")
+        # with open("./%s_golds.txt"%args.mode, "w+") as f:
+        #     for output in targets:
+        #         f.write(output.strip() + "\n")
 
         lf_matching, str_matching = cal_performance(outputs, targets, all_domains)
         logging.info('Logical form matching accuracy: {}, String matching accuracy: {}'.format(lf_matching, str_matching))

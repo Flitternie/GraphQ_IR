@@ -1,4 +1,4 @@
-# Generated from ./overnight/Overnight.g4 by ANTLR 4.9.2
+# Generated from ./parser/overnight/Overnight.g4 by ANTLR 4.9.2
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .OvernightParser import OvernightParser
@@ -32,6 +32,15 @@ class OvernightListener(ParseTreeListener):
 
     # Exit a parse tree produced by OvernightParser#entityNP.
     def exitEntityNP(self, ctx:OvernightParser.EntityNPContext):
+        pass
+
+
+    # Enter a parse tree produced by OvernightParser#getPropertyNP.
+    def enterGetPropertyNP(self, ctx:OvernightParser.GetPropertyNPContext):
+        pass
+
+    # Exit a parse tree produced by OvernightParser#getPropertyNP.
+    def exitGetPropertyNP(self, ctx:OvernightParser.GetPropertyNPContext):
         pass
 
 
@@ -77,15 +86,6 @@ class OvernightListener(ParseTreeListener):
 
     # Exit a parse tree produced by OvernightParser#domainCPNP.
     def exitDomainCPNP(self, ctx:OvernightParser.DomainCPNPContext):
-        pass
-
-
-    # Enter a parse tree produced by OvernightParser#getPropertyNP.
-    def enterGetPropertyNP(self, ctx:OvernightParser.GetPropertyNPContext):
-        pass
-
-    # Exit a parse tree produced by OvernightParser#getPropertyNP.
-    def exitGetPropertyNP(self, ctx:OvernightParser.GetPropertyNPContext):
         pass
 
 
@@ -158,6 +158,15 @@ class OvernightListener(ParseTreeListener):
 
     # Exit a parse tree produced by OvernightParser#concatValueNP.
     def exitConcatValueNP(self, ctx:OvernightParser.ConcatValueNPContext):
+        pass
+
+
+    # Enter a parse tree produced by OvernightParser#attributeNP.
+    def enterAttributeNP(self, ctx:OvernightParser.AttributeNPContext):
+        pass
+
+    # Exit a parse tree produced by OvernightParser#attributeNP.
+    def exitAttributeNP(self, ctx:OvernightParser.AttributeNPContext):
         pass
 
 
@@ -302,15 +311,6 @@ class OvernightListener(ParseTreeListener):
 
     # Exit a parse tree produced by OvernightParser#superlativeByReversePredicate.
     def exitSuperlativeByReversePredicate(self, ctx:OvernightParser.SuperlativeByReversePredicateContext):
-        pass
-
-
-    # Enter a parse tree produced by OvernightParser#comparativeByAttribute.
-    def enterComparativeByAttribute(self, ctx:OvernightParser.ComparativeByAttributeContext):
-        pass
-
-    # Exit a parse tree produced by OvernightParser#comparativeByAttribute.
-    def exitComparativeByAttribute(self, ctx:OvernightParser.ComparativeByAttributeContext):
         pass
 
 

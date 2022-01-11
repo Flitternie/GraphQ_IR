@@ -7,20 +7,18 @@ root
 np
     : cp #CPNP
     | entity #entityNP
+    | LB getProperty np relNP RB #getPropertyNP
     | value #numericNP
     | LB concat np np RB #concatNP
     | LB aggregate aggregateType np #aggregateNP
     | LB size np RB #sizeNP
-    | LB cp LB domain relNP RB RB #domainCPNP
-    | LB getProperty np relNP RB #getPropertyNP
+    | LB getProperty LB cp LB domain relNP RB RB relNP RB #domainCPNP
     | constraintNP #filterNP
     ;
 
-// concept + CP
-// type + CP
-// relNP + CP (through domain)
-// relNP + CP (through eventNP)
-// ( call SW.listValue ( call SW.getProperty ( ( lambda s ( call SW.filter ( var s ) ( call SW.ensureNumericProperty ( string education_end_date ) ) ( string > ) ( call SW.ensureNumericEntity ( call SW.getProperty ( call SW.getProperty en.person.alice ( call SW.reverse ( string student ) ) ) ( string education_start_date ) ) ) ) ) ( call SW.domain ( string student ) ) ) ( string student ) ) )
+// type + CP (through typeConstraintNP)
+// relNP + CP (through domainCPNP)
+// reversePredicate + CP (through eventConstraintNP)
 
 entity
     : LB? 'en.' string '.' string RB?
@@ -46,6 +44,7 @@ reversePredicate
 
 value
     : LB concat value value RB #concatValueNP
+    | LB getProperty np relNP RB #attributeNP
     | LB ensureNumericEntity np RB #numericEntityNP
     | LB 'number' quantity ( 'en.'? string )? RB #numberNP
     | LB date RB #dateNP
@@ -75,13 +74,13 @@ filterCP
 
 superlativeCP
     : LB superlative constraintNP op relNP RB #superlativeByAttribute
-    | LB countSuperlative constraintNP op relNP RB #superlativeByAttribute
+    | LB countSuperlative constraintNP op relNP RB #superlativeByPredicate // predicate?
     | LB countSuperlative constraintNP op predicate np RB #superlativeByPredicate
     | LB countSuperlative constraintNP op reversePredicate np RB #superlativeByReversePredicate
     ;
 
 comparativeCP
-    : LB countComparative constraintNP relNP op value RB #comparativeByAttribute
+    : LB countComparative constraintNP relNP op value RB #comparativeByPredicate // predicate?
     | LB countComparative constraintNP predicate op value np RB #comparativeByPredicate
     | LB countComparative constraintNP reversePredicate op value np RB #comparativeByReversePredicate
     ;
@@ -189,7 +188,7 @@ quantity
     ;
 
 DATE
-    : 'date ' INTEGER ( ' -' | ' ' ) INTEGER ( ' -' | ' ' ) INTEGER
+    : 'date ' INTEGER ' ' INTEGER ' ' INTEGER
     ;
 
 TIME
@@ -197,7 +196,7 @@ TIME
     ;
 
 INTEGER
-    : DIGIT+
+    : '-'? DIGIT+
     ;
 
 STRING_LITERAL

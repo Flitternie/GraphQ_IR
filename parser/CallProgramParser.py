@@ -9,9 +9,9 @@ from string import Template
 from antlr4 import *
 from antlr4.InputStream import InputStream
 
-from .program_v2.ProgramLexer import ProgramLexer
-from .program_v2.ProgramParser import ProgramParser
-from .program_v2.ProgramListener import ProgramListener
+from .program.ProgramLexer import ProgramLexer
+from .program.ProgramParser import ProgramParser
+from .program.ProgramListener import ProgramListener
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import ParseCancellationException
@@ -35,55 +35,23 @@ def get_program_seq(program):
 class ParsingProgram():
     def __init__(self):
         self.walker = ParseTreeWalker() 
-        self.err_count = 0
+        self.errors = []
 
-    def parse(self, program):
-        program = get_program_seq(program)
+    def parse(self, input):
+        program = get_program_seq(input)
         input_stream = InputStream(program)
         lexer = ProgramLexer(input_stream)       
+        # lexer.removeErrorListeners()
+        # lexer.addErrorListener(ThrowingErrorListener())
         token_stream = CommonTokenStream(lexer)
         parser = ProgramParser(token_stream)
         
         try:
             tree = parser.query()
             lisp_tree_str = tree.toStringTree(recog=parser)
-            # print(lisp_tree_str)
         except Exception:
-            self.err_count += 1
-        
+            self.errors.append(input)
+            return None
 
-if __name__ == '__main__':
-    train_data = json.load(open("./full_dataset/train.json"))
-    train_program = [get_program_seq(item['program']) for item in train_data]
-    val_data = json.load(open("./full_dataset/val.json"))
-    val_program = [get_program_seq(item['program']) for item in val_data]
-    test_data = json.load(open("./full_dataset/test.json"))
-    test_program = [get_program_seq(item['program']) for item in test_data]
-    
-    count = 0
-    err_file = open("./err_programs.txt", "a+")
-    for program in tqdm(chain(train_program,val_program,test_program)):
-        input_stream = InputStream(program)
-        
-        lexer = ProgramLexer(input_stream)
-        # lexer.removeErrorListeners()
-        # lexer.addErrorListener(ThrowingErrorListener())
-        
-        token_stream = CommonTokenStream(lexer)
-        
-        parser = ProgramParser(token_stream)
-        # lexer.removeErrorListeners()
-        # lexer.addErrorListener(ThrowingErrorListener())
-        
-        try:
-            tree = parser.query()
-            # lisp_tree_str = tree.toStringTree(recog=parser)
-            # print(lisp_tree_str)
-        except Exception:
-            count += 1
-            err_file.write(program.strip()+"\n")
-            # raise Exception
-    err_file.close()
-
-    print('error count: %d' % count)
+        return lisp_tree_str        
     

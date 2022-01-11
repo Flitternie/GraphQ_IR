@@ -1,4 +1,4 @@
-# Generated from ./Program.g4 by ANTLR 4.9.2
+# Generated from ./parser/program/Program.g4 by ANTLR 4.9.2
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .ProgramParser import ProgramParser
@@ -8,12 +8,12 @@ else:
 # This class defines a complete listener for a parse tree produced by ProgramParser.
 class ProgramListener(ParseTreeListener):
 
-    # Enter a parse tree produced by ProgramParser#query.
-    def enterQuery(self, ctx:ProgramParser.QueryContext):
+    # Enter a parse tree produced by ProgramParser#root.
+    def enterRoot(self, ctx:ProgramParser.RootContext):
         pass
 
-    # Exit a parse tree produced by ProgramParser#query.
-    def exitQuery(self, ctx:ProgramParser.QueryContext):
+    # Exit a parse tree produced by ProgramParser#root.
+    def exitRoot(self, ctx:ProgramParser.RootContext):
         pass
 
 

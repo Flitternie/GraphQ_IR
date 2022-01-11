@@ -15,29 +15,15 @@ class strictDict(dict):
         if key not in self:
             raise KeyError("{} is not a legal key of this strictDict".format(repr(key)))
         dict.__setitem__(self, key, value)
-
-class entitySet():
-    def __init__(self, value="", concept=""):
-        self.value = str(value)
+    
+class entitySet(str):
+    def __new__(self, value="", concept=""):
         self.concept = concept
-    
-    def __str__(self):
-        return self.value
-    
-    def __repr__(self):
-        return self.value
-    
-    def __len__(self):
-        return len(self.value)
-
-# class entitySet(str):
-#     def __new__(self, value="", concept=""):
-#         self.concept = concept
-#         return str.__new__(self, value)
+        return str.__new__(self, value)
 
 class SparqlEmitter(UnifiedIRParserListener):
     def __init__(self):
-        self.sparql = ""
+        self.logical_form = ""
         self.rule_executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
         self.vars = {  
             "e": [],
@@ -70,19 +56,19 @@ class SparqlEmitter(UnifiedIRParserListener):
 
     
     def initialize(self):
-        self.sparql = ""
+        self.logical_form = ""
         self.vars = {}.fromkeys(self.vars, 0)
 
-    def getSPARQL(self, ctx):
-        return self.sparql
+    def get_logical_form(self, ctx):
+        return self.logical_form
 
-    def insertEntitySet(self, ctx, value, concept=None):
+    def insert_entityset(self, ctx, value, concept=None):
         if isinstance(ctx.slots["entitySet"], list):
             ctx.slots["entitySet"].append(entitySet(value, concept))
         else: 
             ctx.slots["entitySet"] = entitySet(value, concept)
     
-    def getValueType(self, key, value=None):
+    def get_value_type(self, key, value=None):
         try:
             v_type = self.rule_executor.key_type[key]
             if key in self.ambiguous_qualifiers and v_type == "date" and re.match(r"-?[0-9]{3,4}(?!.)", value):
@@ -91,7 +77,7 @@ class SparqlEmitter(UnifiedIRParserListener):
         except:
             return "string"
     
-    def getValueUnit(self, value, value_type):
+    def get_value_unit(self, value, value_type):
         if value_type == "quantity":
             if ' ' in value:
                 vs = value.split()
@@ -107,15 +93,14 @@ class SparqlEmitter(UnifiedIRParserListener):
     #     subqueries = [" ".join(i) for i in subqueries]
     #     return " . ".join(subqueries)
 
-    
-    def enterQuery(self, ctx:UnifiedIRParser.QueryContext):
+    def enterRoot(self, ctx: UnifiedIRParser.RootContext):
         self.initialize()
-        ctx.slots = strictDict({"sparql": ""})
-        return super().enterQuery(ctx)
-    
-    def exitQuery(self, ctx: UnifiedIRParser.QueryContext):
-        self.sparql = ctx.slots["sparql"]
-        return super().exitQuery(ctx)
+        ctx.slots = strictDict({"LF": ""})
+        return super().enterRoot(ctx)
+
+    def exitRoot(self, ctx: UnifiedIRParser.RootContext):
+        self.logical_form = ctx.slots["LF"]
+        return super().exitRoot(ctx)
     
     def enterEntityQuery(self, ctx: UnifiedIRParser.EntityQueryContext):
         ctx.slots = strictDict({"entitySet": entitySet()})
@@ -123,7 +108,7 @@ class SparqlEmitter(UnifiedIRParserListener):
     
     def exitEntityQuery(self, ctx: UnifiedIRParser.EntityQueryContext):
         subqueries = ctx.slots["entitySet"]
-        ctx.parentCtx.slots["sparql"] = self.skeleton["entityQuery"].format(subqueries)
+        ctx.parentCtx.slots["LF"] = self.skeleton["entityQuery"].format(subqueries)
         return super().exitEntityQuery(ctx)
     
     def enterAttributeQuery(self, ctx: UnifiedIRParser.AttributeQueryContext):
@@ -132,7 +117,7 @@ class SparqlEmitter(UnifiedIRParserListener):
     
     def exitAttributeQuery(self, ctx: UnifiedIRParser.AttributeQueryContext):
         subqueries = append_attribute_value_query(ctx.slots["entitySet"], ctx.slots["attribute"])
-        ctx.parentCtx.slots["sparql"] = self.skeleton["attributeQuery"].format(subqueries)
+        ctx.parentCtx.slots["LF"] = self.skeleton["attributeQuery"].format(subqueries)
         return super().exitAttributeQuery(ctx)
     
     def enterPredicateQuery(self, ctx: UnifiedIRParser.PredicateQueryContext):
@@ -143,7 +128,7 @@ class SparqlEmitter(UnifiedIRParserListener):
         # ctx.slots["entitySet"][0], ctx.slots["entitySet"][1] = replace_duplicate_variables(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1], same_sub=False)
         # subqueries = ctx.slots["entitySet"][0] + ctx.slots["entitySet"][1] + '?e_1 ?p ?e_2 . '
         subqueries = gen_relation_query(sbj_sparql=ctx.slots["entitySet"][0], sbj_variable='?e_1', obj_sparql=ctx.slots["entitySet"][1], obj_variable='?e_2')
-        ctx.parentCtx.slots["sparql"] = self.skeleton["predicateQuery"].format(subqueries)
+        ctx.parentCtx.slots["LF"] = self.skeleton["predicateQuery"].format(subqueries)
         return super().exitPredicateQuery(ctx)
     
     def enterQualifierQuery(self, ctx: UnifiedIRParser.QualifierQueryContext):
@@ -152,7 +137,7 @@ class SparqlEmitter(UnifiedIRParserListener):
     
     def exitQualifierQuery(self, ctx: UnifiedIRParser.QualifierQueryContext):
         subqueries = append_attribute_value_query(ctx.slots["verify"], ctx.slots["qualifier"], e=ctx.slots["factNode"], in_qualifier=True)
-        ctx.parentCtx.slots["sparql"] = self.skeleton["qualifierQuery"].format(subqueries)
+        ctx.parentCtx.slots["LF"] = self.skeleton["qualifierQuery"].format(subqueries)
         return super().exitQualifierQuery(ctx)
     
     def enterCountQuery(self, ctx: UnifiedIRParser.CountQueryContext):
@@ -161,7 +146,7 @@ class SparqlEmitter(UnifiedIRParserListener):
     
     def exitCountQuery(self, ctx: UnifiedIRParser.CountQueryContext):
         subqueries = ctx.slots["entitySet"]
-        ctx.parentCtx.slots["sparql"] = self.skeleton["countQuery"].format(subqueries)
+        ctx.parentCtx.slots["LF"] = self.skeleton["countQuery"].format(subqueries)
         return super().exitCountQuery(ctx)
     
     def enterVerifyQuery(self, ctx: UnifiedIRParser.VerifyQueryContext):
@@ -170,7 +155,7 @@ class SparqlEmitter(UnifiedIRParserListener):
     
     def exitVerifyQuery(self, ctx: UnifiedIRParser.VerifyQueryContext):
         subqueries = ctx.slots["verify"]
-        ctx.parentCtx.slots["sparql"] = self.skeleton["verifyQuery"].format(subqueries)
+        ctx.parentCtx.slots["LF"] = self.skeleton["verifyQuery"].format(subqueries)
         return super().exitVerifyQuery(ctx)
     
     def enterSelectQuery(self, ctx: UnifiedIRParser.SelectQueryContext):
@@ -179,7 +164,7 @@ class SparqlEmitter(UnifiedIRParserListener):
     
     def exitSelectQuery(self, ctx: UnifiedIRParser.SelectQueryContext):
         subqueries = append_attribute_value_query(ctx.slots["entitySet"], ctx.slots["attribute"], 'quantity')
-        ctx.parentCtx.slots["sparql"] = self.skeleton["selectQuery"].format(subqueries, ctx.slots["orderBy"].format('?v'), ctx.slots["number"])
+        ctx.parentCtx.slots["LF"] = self.skeleton["selectQuery"].format(subqueries, ctx.slots["orderBy"].format('?v'), ctx.slots["number"])
         return super().exitSelectQuery(ctx)
 
     
@@ -189,8 +174,8 @@ class SparqlEmitter(UnifiedIRParserListener):
         return super().enterVerifyByAttribute(ctx)
     
     def exitVerifyByAttribute(self, ctx: UnifiedIRParser.VerifyByAttributeContext):
-        ctx.slots["valueType"] = ctx.slots["valueType"] if ctx.slots["valueType"] != "" else self.getValueType(ctx.slots["attribute"], ctx.slots["value"])
-        ctx.slots["value"], v_unit = self.getValueUnit(ctx.slots["value"], ctx.slots["valueType"])
+        ctx.slots["valueType"] = ctx.slots["valueType"] if ctx.slots["valueType"] != "" else self.get_value_type(ctx.slots["attribute"], ctx.slots["value"])
+        ctx.slots["value"], v_unit = self.get_value_unit(ctx.slots["value"], ctx.slots["valueType"])
 
         subqueries = ctx.slots["entitySet"]
         subqueries, _ = replace_variable(subqueries, '?pv')
@@ -206,8 +191,8 @@ class SparqlEmitter(UnifiedIRParserListener):
             if ctx.slots["qualifierFilter"] != {}:
                 subqueries, _ = replace_variable(subqueries, '?qpv')
                 subqueries, _ = replace_variable(subqueries, '?qv')
-                ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.getValueType(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])
-                ctx.slots["qualifierFilter"]["value"], qv_unit = self.getValueUnit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
+                ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.get_value_type(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])
+                ctx.slots["qualifierFilter"]["value"], qv_unit = self.get_value_unit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
                 subqueries += gen_attribute_query(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"], qv_unit, ctx.slots["qualifierFilter"]["op"], e=fact_node, in_qualifier=True)
             ctx.parentCtx.slots["verify"] = subqueries
         else:
@@ -234,8 +219,8 @@ class SparqlEmitter(UnifiedIRParserListener):
             if ctx.slots["qualifierFilter"] != {}:
                 subqueries, _ = replace_variable(subqueries, '?qpv')
                 subqueries, _ = replace_variable(subqueries, '?qv')
-                ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.getValueType(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])        
-                ctx.slots["qualifierFilter"]["value"], qv_unit = self.getValueUnit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
+                ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.get_value_type(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])        
+                ctx.slots["qualifierFilter"]["value"], qv_unit = self.get_value_unit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
                 subqueries += gen_attribute_query(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"], qv_unit, ctx.slots["qualifierFilter"]["op"], e=fact_node, in_qualifier=True)
             ctx.parentCtx.slots["verify"] = subqueries
         else:
@@ -251,9 +236,9 @@ class SparqlEmitter(UnifiedIRParserListener):
     def exitEntitySetGroup(self, ctx: UnifiedIRParser.EntitySetGroupContext):
         assert isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
         if ctx.slots["setOP"] == "and":
-            self.insertEntitySet(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1], same_concept(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1])))
+            self.insert_entityset(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1], same_concept(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1])))
         elif ctx.slots["setOP"] == "or":
-            self.insertEntitySet(ctx.parentCtx, or_two_descriptions(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1], same_concept(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1])))
+            self.insert_entityset(ctx.parentCtx, or_two_descriptions(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1], same_concept(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1])))
         else:
             raise Exception("Unexpected set operator")
         return super().exitEntitySetGroup(ctx)
@@ -264,7 +249,7 @@ class SparqlEmitter(UnifiedIRParserListener):
     
     def exitEntitySetIntersect(self, ctx: UnifiedIRParser.EntitySetIntersectContext):
         assert isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
-        self.insertEntitySet(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1], same_concept(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1])))
+        self.insert_entityset(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1], same_concept(ctx.slots["entitySet"][0], ctx.slots["entitySet"][1])))
         return super().exitEntitySetIntersect(ctx)
     
     def enterEntitySetFilter(self, ctx: UnifiedIRParser.EntitySetFilterContext):
@@ -272,7 +257,7 @@ class SparqlEmitter(UnifiedIRParserListener):
         return super().enterEntitySetFilter(ctx)
     
     def exitEntitySetFilter(self, ctx: UnifiedIRParser.EntitySetFilterContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entitySet"], ctx.slots["entitySet"].concept)
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entitySet"], ctx.slots["entitySet"].concept)
         return super().exitEntitySetFilter(ctx)
     
     def enterEntitySetPlaceholder(self, ctx: UnifiedIRParser.EntitySetPlaceholderContext):
@@ -286,7 +271,7 @@ class SparqlEmitter(UnifiedIRParserListener):
         return super().enterEntitySetAtom(ctx)
     
     def exitEntitySetAtom(self, ctx: UnifiedIRParser.EntitySetAtomContext):
-        self.insertEntitySet(ctx.parentCtx, gen_name_query(ctx.slots["entity"]))
+        self.insert_entityset(ctx.parentCtx, gen_name_query(ctx.slots["entity"]))
         return super().exitEntitySetAtom(ctx)
 
 
@@ -296,22 +281,22 @@ class SparqlEmitter(UnifiedIRParserListener):
         return super().enterEntitySetByAttribute(ctx)
     
     def exitEntitySetByAttribute(self, ctx: UnifiedIRParser.EntitySetByAttributeContext):
-        ctx.slots["valueType"] = ctx.slots["valueType"] if ctx.slots["valueType"] != "" else self.getValueType(ctx.slots["attribute"], ctx.slots["value"])
-        ctx.slots["value"], v_unit = self.getValueUnit(ctx.slots["value"], ctx.slots["valueType"])
+        ctx.slots["valueType"] = ctx.slots["valueType"] if ctx.slots["valueType"] != "" else self.get_value_type(ctx.slots["attribute"], ctx.slots["value"])
+        ctx.slots["value"], v_unit = self.get_value_unit(ctx.slots["value"], ctx.slots["valueType"])
 
         subqueries = gen_concept_query(ctx.slots["concept"]) if ctx.slots["concept"] != "" else ""
         subqueries += gen_attribute_query(ctx.slots["attribute"], ctx.slots["value"], ctx.slots["valueType"], v_unit, ctx.slots["op"])
 
         if ctx.slots["qualifierFilter"] != {}:
             fact_node = gen_attr_fact_node(ctx.slots["attribute"])
-            ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.getValueType(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])       
-            ctx.slots["qualifierFilter"]["value"], qv_unit = self.getValueUnit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
+            ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.get_value_type(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])       
+            ctx.slots["qualifierFilter"]["value"], qv_unit = self.get_value_unit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
             subqueries += gen_attribute_query(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"], qv_unit, ctx.slots["qualifierFilter"]["op"], e=fact_node, in_qualifier=True)
 
         if ctx.slots["entitySet"]:
-            self.insertEntitySet(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"], subqueries, same_concept(ctx.slots["concept"], ctx.slots["entitySet"])), ctx.slots["concept"])
+            self.insert_entityset(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"], subqueries, same_concept(ctx.slots["concept"], ctx.slots["entitySet"])), ctx.slots["concept"])
         else:
-            self.insertEntitySet(ctx.parentCtx, subqueries, ctx.slots["concept"])
+            self.insert_entityset(ctx.parentCtx, subqueries, ctx.slots["concept"])
         return super().exitEntitySetByAttribute(ctx)
     
     def enterEntitySetByPredicate(self, ctx: UnifiedIRParser.EntitySetByPredicateContext):
@@ -339,11 +324,11 @@ class SparqlEmitter(UnifiedIRParserListener):
         
         if ctx.slots["qualifierFilter"] != {}:
             fact_node = gen_rel_fact_node(ctx.slots["predicate"], ctx.slots["direction"], sbj_variable, obj_variable)
-            ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.getValueType(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])
-            ctx.slots["qualifierFilter"]["value"], qv_unit = self.getValueUnit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
+            ctx.slots["qualifierFilter"]["valueType"] = ctx.slots["qualifierFilter"]["valueType"] if ctx.slots["qualifierFilter"]["valueType"] != "" else self.get_value_type(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"])
+            ctx.slots["qualifierFilter"]["value"], qv_unit = self.get_value_unit(ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"])
             subqueries += gen_attribute_query(ctx.slots["qualifierFilter"]["qualifier"], ctx.slots["qualifierFilter"]["value"], ctx.slots["qualifierFilter"]["valueType"], qv_unit, ctx.slots["qualifierFilter"]["op"], e=fact_node, in_qualifier=True)
 
-        self.insertEntitySet(ctx.parentCtx, subqueries, ctx.slots["concept"])
+        self.insert_entityset(ctx.parentCtx, subqueries, ctx.slots["concept"])
         return super().exitEntitySetByPredicate(ctx)
     
     def enterEntitySetByConcept(self, ctx: UnifiedIRParser.EntitySetByConceptContext):
@@ -354,9 +339,9 @@ class SparqlEmitter(UnifiedIRParserListener):
         subqueries = gen_concept_query(ctx.slots["concept"]) if ctx.slots["concept"] != "" else ""
         
         if ctx.slots["entitySet"]:
-            self.insertEntitySet(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"], subqueries, same_concept(ctx.slots["concept"], ctx.slots["entitySet"])), ctx.slots["concept"])
+            self.insert_entityset(ctx.parentCtx, and_two_descriptions(ctx.slots["entitySet"], subqueries, same_concept(ctx.slots["concept"], ctx.slots["entitySet"])), ctx.slots["concept"])
         else:
-            self.insertEntitySet(ctx.parentCtx, subqueries, ctx.slots["concept"])
+            self.insert_entityset(ctx.parentCtx, subqueries, ctx.slots["concept"])
         return super().exitEntitySetByConcept(ctx)
     
 

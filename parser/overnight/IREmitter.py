@@ -32,11 +32,6 @@ class entitySet():
     def __len__(self):
         return len(self.value)
 
-# class entitySet(str):
-#     def __init__(self, value="", is_atom=False, is_pop=False):
-#         self.is_atom = is_atom
-#         self.is_pop = is_pop
-#         return str.__init__(self, value)
 
 class IREmitter(OvernightListener):
     def __init__(self):
@@ -54,34 +49,34 @@ class IREmitter(OvernightListener):
                             "<": "smaller than", 
                             ">": "larger than", 
                             "!=": "is not",
-                            "<=": "smaller or equal to",
-                            ">=": "larger or equal to",
+                            "<=": "at most",
+                            ">=": "at least",
                             "max": "most",
                             "min": "least" }
     
-    def getIR(self, ctx):
+    def get_ir(self, ctx):
         return self.ir
     
-    def insertEntitySet(self, ctx, value, is_atom=False, is_pop=False):
+    def insert_entityset(self, ctx, value, is_atom=False, is_pop=False):
         if isinstance(ctx.slots["entitySet"], list):
             ctx.slots["entitySet"].append(entitySet(value, is_atom, is_pop))
         else: 
             ctx.slots["entitySet"] = entitySet(value, is_atom, is_pop)        
-
+            
     def scoping(self, type, value):
+        if type not in self.data_type.keys():
+            raise TypeError("{} is not a valid type.".format(type))
         if value == "":
             return ""
         if type == "entity":
             if value.is_pop:
                 return value
-            elif value.is_atom:
-                return "<{}> {} </{}>".format(self.data_type[type], value, self.data_type[type])
-            else:
+            elif not value.is_atom:
                 return "<{}> {} </{}>".format(self.data_type["entitySet"], value, self.data_type["entitySet"])
-        elif type not in self.data_type.keys():
-            raise TypeError("{} is not a valid type.".format(type))
+        elif type == "value":
+            if value.startswith("<{}>".format(self.data_type["attribute"])) or re.match(r"<V>.*?</V> or <V>.*?</V>", value):
+                return value
         return "<{}> {} </{}>".format(self.data_type[type], value, self.data_type[type])
-    
 
 
     def enterRoot(self, ctx: OvernightParser.RootContext):
@@ -90,7 +85,13 @@ class IREmitter(OvernightListener):
         return super().enterRoot(ctx)
     
     def exitRoot(self, ctx: OvernightParser.RootContext):
-        self.ir = ctx.slots["entitySet"]
+        self.ir = str(ctx.slots["entitySet"]).replace("  ", " ").strip()
+        if self.ir.startswith("<{}>".format(self.data_type["attribute"])):
+            self.ir = "what is the attribute " + self.ir
+        elif self.ir.startswith("size of"):
+            self.ir = self.ir.replace("size of", "how many")
+        else:
+            self.ir = "what is " + self.ir
         return super().exitRoot(ctx)
     
     def enterConcatNP(self, ctx: OvernightParser.ConcatNPContext):
@@ -99,7 +100,9 @@ class IREmitter(OvernightListener):
 
     def exitConcatNP(self, ctx: OvernightParser.ConcatNPContext):
         assert isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
-        self.insertEntitySet(ctx.parentCtx, "{} or {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        self.insert_entityset(ctx.parentCtx, "{} or {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        if isinstance(ctx.parentCtx, OvernightParser.RootContext):
+            ctx.parentCtx.slots["entitySet"] = self.scoping("entity", ctx.parentCtx.slots["entitySet"])
         return super().exitConcatNP(ctx) 
     
     def enterAggregateNP(self, ctx: OvernightParser.AggregateNPContext):
@@ -107,7 +110,7 @@ class IREmitter(OvernightListener):
         return super().enterAggregateNP(ctx)
     
     def exitAggregateNP(self, ctx: OvernightParser.AggregateNPContext):
-        self.insertEntitySet(ctx.parentCtx, "{} of {}".format(ctx.slots["aggregateType"], self.scoping("entity", ctx.slots["entitySet"])))
+        self.insert_entityset(ctx.parentCtx, "{} of {}".format(ctx.slots["aggregateType"], ctx.slots["entitySet"]))
         return super().exitAggregateNP(ctx)
     
     def enterSizeNP(self, ctx: OvernightParser.SizeNPContext):
@@ -115,7 +118,7 @@ class IREmitter(OvernightListener):
         return super().enterSizeNP(ctx)
     
     def exitSizeNP(self, ctx: OvernightParser.SizeNPContext):
-        self.insertEntitySet(ctx.parentCtx, "size of {}".format(self.scoping("entity", ctx.slots["entitySet"])))
+        self.insert_entityset(ctx.parentCtx, "size of {}".format(self.scoping("entity", ctx.slots["entitySet"])))
         return super().exitSizeNP(ctx)
     
     def enterGetPropertyNP(self, ctx: OvernightParser.GetPropertyNPContext):
@@ -126,7 +129,7 @@ class IREmitter(OvernightListener):
         if isinstance(ctx.parentCtx, OvernightParser.NumericEntityNPContext):
             ctx.parentCtx.slots["value"] = "{} of {}".format(self.scoping("attribute", ctx.slots["relNP"]), self.scoping("entity", ctx.slots["entitySet"]))
         else:
-            self.insertEntitySet(ctx.parentCtx, "{} of {}".format(self.scoping("attribute", ctx.slots["relNP"]), self.scoping("entity", ctx.slots["entitySet"])))
+            self.insert_entityset(ctx.parentCtx, "{} of {}".format(self.scoping("attribute", ctx.slots["relNP"]), self.scoping("entity", ctx.slots["entitySet"])))
         return super().exitGetPropertyNP(ctx)
     
     def enterDomainCPNP(self, ctx: OvernightParser.DomainCPNPContext):
@@ -134,7 +137,9 @@ class IREmitter(OvernightListener):
         return super().enterDomainCPNP(ctx)
     
     def exitDomainCPNP(self, ctx: OvernightParser.DomainCPNPContext):
-        self.insertEntitySet(ctx.parentCtx, "{} {}".format(self.scoping("concept", ctx.slots["relNP"]), self.scoping("entity", ctx.slots["entitySet"])))
+        self.insert_entityset(ctx.parentCtx, "{} {}".format(self.scoping("concept", ctx.slots["relNP"]), self.scoping("entity", ctx.slots["entitySet"])))
+        if isinstance(ctx.parentCtx, OvernightParser.RootContext): 
+            ctx.parentCtx.slots["entitySet"] = self.scoping("entity", ctx.parentCtx.slots["entitySet"])
         return super().exitDomainCPNP(ctx)
     
     def enterEntityNP(self, ctx: OvernightParser.EntityNPContext):
@@ -142,7 +147,7 @@ class IREmitter(OvernightListener):
         return super().enterEntityNP(ctx)
 
     def exitEntityNP(self, ctx: OvernightParser.EntityNPContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entity"], is_atom=True)
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entity"], is_atom=True)
         return super().exitEntityNP(ctx)
     
     def enterNumericNP(self, ctx: OvernightParser.NumericNPContext):
@@ -151,7 +156,7 @@ class IREmitter(OvernightListener):
     
     def exitNumericNP(self, ctx: OvernightParser.NumericNPContext):
         if isinstance(ctx.parentCtx, OvernightParser.RootContext):
-            self.insertEntitySet(ctx.parentCtx, "{} {}".format(ctx.slots["valueType"], self.scoping("value", ctx.slots["value"])))
+            self.insert_entityset(ctx.parentCtx, "{} {}".format(ctx.slots["valueType"], self.scoping("value", ctx.slots["value"])))
         else:
             ctx.parentCtx.slots["value"] = ctx.slots["value"]
             ctx.parentCtx.slots["valueType"] = ctx.slots["valueType"]
@@ -162,7 +167,7 @@ class IREmitter(OvernightListener):
         return super().enterFilterNP(ctx)
     
     def exitFilterNP(self, ctx: OvernightParser.FilterNPContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entitySet"])
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entitySet"])    
         return super().exitFilterNP(ctx)
 
     def enterCPNP(self, ctx: OvernightParser.CPNPContext):
@@ -170,7 +175,9 @@ class IREmitter(OvernightListener):
         return super().enterCPNP(ctx)
     
     def exitCPNP(self, ctx: OvernightParser.CPNPContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entitySet"])
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entitySet"])
+        if isinstance(ctx.parentCtx, OvernightParser.RootContext):
+            ctx.parentCtx.slots["entitySet"] = self.scoping("entity", ctx.parentCtx.slots["entitySet"])
         return super().exitCPNP(ctx)
     
     def enterNestedCP(self, ctx: OvernightParser.NestedCPContext):
@@ -178,7 +185,7 @@ class IREmitter(OvernightListener):
         return super().enterNestedCP(ctx)
     
     def exitNestedCP(self, ctx: OvernightParser.NestedCPContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entitySet"])
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entitySet"])
         return super().exitNestedCP(ctx)
     
     def enterCP(self, ctx: OvernightParser.CPContext):
@@ -186,7 +193,7 @@ class IREmitter(OvernightListener):
         return super().enterCP(ctx)
     
     def exitCP(self, ctx: OvernightParser.CPContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entitySet"])
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entitySet"])
         return super().exitCP(ctx)
     
     def enterFilterByPredicate(self, ctx: OvernightParser.FilterByPredicateContext):
@@ -194,12 +201,18 @@ class IREmitter(OvernightListener):
         return super().enterFilterByPredicate(ctx)
 
     def exitFilterByPredicate(self, ctx: OvernightParser.FilterByPredicateContext):
-        if len(ctx.slots["entitySet"]) == 1:
-            self.insertEntitySet(ctx.parentCtx, "{} that {} forward to entities".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"])))
-        elif len(ctx.slots["entitySet"]) == 2:
-            self.insertEntitySet(ctx.parentCtx, "{} that {} forward to {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        assert isinstance(ctx.slots["entitySet"], list)
+        if ctx.slots["OP"] == self.OP_vocab["!="]:
+            logic_gate = "not"
         else:
-            raise ValueError
+            logic_gate = ""
+        if len(ctx.slots["entitySet"]) == 1:
+            self.insert_entityset(ctx.parentCtx, "{} that {} {} forward to entities".format(self.scoping("entity", ctx.slots["entitySet"][0]), logic_gate, self.scoping("relation", ctx.slots["predicate"])))
+        elif len(ctx.slots["entitySet"]) == 2:
+            self.insert_entityset(ctx.parentCtx, "{} that {} {} forward to {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), logic_gate, self.scoping("relation", ctx.slots["predicate"]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        else:
+            print(ctx.slots["OP"])
+            raise ValueError()
         return super().exitFilterByPredicate(ctx)
     
     def enterFilterByAttribute(self, ctx: OvernightParser.FilterByAttributeContext):
@@ -207,7 +220,7 @@ class IREmitter(OvernightListener):
         return super().enterFilterByAttribute(ctx)
     
     def exitFilterByAttribute(self, ctx: OvernightParser.FilterByAttributeContext):
-        self.insertEntitySet(ctx.parentCtx, "{} whose {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"]), self.scoping("attribute", ctx.slots["relNP"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"])))
+        self.insert_entityset(ctx.parentCtx, "{} whose {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"]), self.scoping("attribute", ctx.slots["relNP"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"])))
         return super().exitFilterByAttribute(ctx)
     
     def enterFilterByReversePredicate(self, ctx: OvernightParser.FilterByReversePredicateContext):
@@ -215,7 +228,15 @@ class IREmitter(OvernightListener):
         return super().enterFilterByReversePredicate(ctx)
     
     def exitFilterByReversePredicate(self, ctx: OvernightParser.FilterByReversePredicateContext):
-        self.insertEntitySet(ctx.parentCtx, "{} that {} backward to {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        assert isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
+        if ctx.slots["OP"] == self.OP_vocab["="]:
+            logic_gate = ""
+        elif ctx.slots["OP"] == self.OP_vocab["!="]:
+            logic_gate = "not"
+        else:
+            print(ctx.slots["OP"])
+            raise ValueError()
+        self.insert_entityset(ctx.parentCtx, "{} that {} {} backward to {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), logic_gate, self.scoping("relation", ctx.slots["predicate"]), self.scoping("entity", ctx.slots["entitySet"][1])))
         return super().exitFilterByReversePredicate(ctx)
     
     def enterSuperlativeByAttribute(self, ctx: OvernightParser.SuperlativeByAttributeContext):
@@ -223,15 +244,21 @@ class IREmitter(OvernightListener):
         return super().enterSuperlativeByAttribute(ctx)
 
     def exitSuperlativeByAttribute(self, ctx: OvernightParser.SuperlativeByAttributeContext):
-        self.insertEntitySet(ctx.parentCtx, "{} that has {} {}".format(self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["OP"], self.scoping("attribute", ctx.slots["relNP"])))
+        self.insert_entityset(ctx.parentCtx, "{} that has {} {}".format(self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["OP"], self.scoping("attribute", ctx.slots["relNP"])))
         return super().exitSuperlativeByAttribute(ctx)
     
     def enterSuperlativeByPredicate(self, ctx: OvernightParser.SuperlativeByPredicateContext):
-        ctx.slots = strictDict({"entitySet": [], "predicate": "", "OP": ""})
+        ctx.slots = strictDict({"entitySet": [], "relNP": "", "predicate": "", "OP": ""})
         return super().enterSuperlativeByPredicate(ctx)
     
     def exitSuperlativeByPredicate(self, ctx: OvernightParser.SuperlativeByPredicateContext):
-        self.insertEntitySet(ctx.parentCtx, "{} that {} forward to {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], self.scoping("entity", ctx.slots["entitySet"][1])))
+        assert isinstance(ctx.slots["entitySet"], list) 
+        if len(ctx.slots["entitySet"]) == 1 and ctx.slots["relNP"] != "":
+            self.insert_entityset(ctx.parentCtx, "{} that {} forward to {} entities".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["relNP"]), ctx.slots["OP"]))
+        elif len(ctx.slots["entitySet"]) == 2 and ctx.slots["predicate"] != "":
+            self.insert_entityset(ctx.parentCtx, "{} that {} forward to {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], self.scoping("entity", ctx.slots["entitySet"][1])))
+        else:
+            raise ValueError
         return super().exitSuperlativeByPredicate(ctx)
 
     def enterSuperlativeByReversePredicate(self, ctx: OvernightParser.SuperlativeByReversePredicateContext):
@@ -239,23 +266,30 @@ class IREmitter(OvernightListener):
         return super().enterSuperlativeByReversePredicate(ctx)
     
     def exitSuperlativeByReversePredicate(self, ctx: OvernightParser.SuperlativeByReversePredicateContext):
-        self.insertEntitySet(ctx.parentCtx, "{} that {} backward to {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], self.scoping("entity", ctx.slots["entitySet"][1])))
+        assert isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
+        self.insert_entityset(ctx.parentCtx, "{} that {} backward to {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], self.scoping("entity", ctx.slots["entitySet"][1])))
         return super().exitSuperlativeByReversePredicate(ctx)
     
-    def enterComparativeByAttribute(self, ctx: OvernightParser.ComparativeByAttributeContext):
-        ctx.slots = strictDict({"entitySet": "", "relNP": "", "OP": "", "valueType":"", "value": ""})
-        return super().enterComparativeByAttribute(ctx)
+    # def enterComparativeByAttribute(self, ctx: OvernightParser.ComparativeByAttributeContext):
+    #     ctx.slots = strictDict({"entitySet": "", "relNP": "", "OP": "", "valueType":"", "value": ""})
+    #     return super().enterComparativeByAttribute(ctx)
     
-    def exitComparativeByAttribute(self, ctx: OvernightParser.ComparativeByAttributeContext):
-        self.insertEntitySet(ctx.parentCtx, "{} whose {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"]), self.scoping("attribute", ctx.slots["relNP"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"])))
-        return super().exitComparativeByAttribute(ctx)
+    # def exitComparativeByAttribute(self, ctx: OvernightParser.ComparativeByAttributeContext):
+    #     self.insert_entityset(ctx.parentCtx, "{} whose {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"]), self.scoping("attribute", ctx.slots["relNP"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"])))
+    #     return super().exitComparativeByAttribute(ctx)
 
     def enterComparativeByPredicate(self, ctx: OvernightParser.ComparativeByPredicateContext):
-        ctx.slots = strictDict({"entitySet": [], "predicate": "", "OP": "", "valueType":"", "value": ""})
+        ctx.slots = strictDict({"entitySet": [], "relNP": "", "predicate": "", "OP": "", "valueType":"", "value": ""})
         return super().enterComparativeByPredicate(ctx)
     
     def exitComparativeByPredicate(self, ctx: OvernightParser.ComparativeByPredicateContext):
-        self.insertEntitySet(ctx.parentCtx, "{} that {} forward to {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        assert isinstance(ctx.slots["entitySet"], list) 
+        if len(ctx.slots["entitySet"]) == 1 and ctx.slots["relNP"] != "":
+            self.insert_entityset(ctx.parentCtx, "{} that {} forward to {} {} {} entities".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["relNP"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"])))
+        elif len(ctx.slots["entitySet"]) == 2 and ctx.slots["predicate"] != "":
+            self.insert_entityset(ctx.parentCtx, "{} that {} forward to {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        else:
+            raise ValueError
         return super().exitComparativeByPredicate(ctx)
     
     def enterComparativeByReversePredicate(self, ctx: OvernightParser.ComparativeByReversePredicateContext):
@@ -263,7 +297,7 @@ class IREmitter(OvernightListener):
         return super().enterComparativeByReversePredicate(ctx)
     
     def exitComparativeByReversePredicate(self, ctx: OvernightParser.ComparativeByReversePredicateContext):
-        self.insertEntitySet(ctx.parentCtx, "{} that {} backward to {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        self.insert_entityset(ctx.parentCtx, "{} that {} backward to {} {} {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("relation", ctx.slots["predicate"]), ctx.slots["OP"], ctx.slots["valueType"], self.scoping("value", ctx.slots["value"]), self.scoping("entity", ctx.slots["entitySet"][1])))
         return super().exitComparativeByReversePredicate(ctx)
     
     def enterConcatValueNP(self, ctx: OvernightParser.ConcatValueNPContext):
@@ -274,6 +308,14 @@ class IREmitter(OvernightListener):
         ctx.parentCtx.slots["value"] = "{} or {}".format(self.scoping("value", ctx.slots["value"][0]), self.scoping("value", ctx.slots["value"][1]))
         ctx.parentCtx.slots["valueType"] = ctx.slots["valueType"]
         return super().exitConcatValueNP(ctx)
+    
+    def enterAttributeNP(self, ctx: OvernightParser.AttributeNPContext):
+        ctx.slots = strictDict({"entitySet": "", "relNP": ""})
+        return super().enterAttributeNP(ctx)
+    
+    def exitAttributeNP(self, ctx: OvernightParser.AttributeNPContext):
+        ctx.parentCtx.slots["value"] = "{} of {}".format(self.scoping("attribute", ctx.slots["relNP"]), self.scoping("entity", ctx.slots["entitySet"]))
+        return super().exitAttributeNP(ctx)
 
     def enterNumericEntityNP(self, ctx: OvernightParser.NumericEntityNPContext):
         ctx.slots = strictDict({"value": "", "valueType": ""})
@@ -336,7 +378,7 @@ class IREmitter(OvernightListener):
         return super().enterTypeConstraintNP(ctx)
     
     def exitTypeConstraintNP(self, ctx: OvernightParser.TypeConstraintNPContext):
-        self.insertEntitySet(ctx.parentCtx, self.scoping("concept", ctx.slots["concept"]))
+        self.insert_entityset(ctx.parentCtx, self.scoping("concept", ctx.slots["concept"]))
         return super().exitTypeConstraintNP(ctx)
     
     def enterFilterConstraintNP(self, ctx: OvernightParser.FilterConstraintNPContext):
@@ -344,7 +386,7 @@ class IREmitter(OvernightListener):
         return super().enterFilterConstraintNP(ctx)
     
     def exitFilterConstraintNP(self, ctx: OvernightParser.FilterConstraintNPContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entitySet"])
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entitySet"])
         return super().exitFilterConstraintNP(ctx)
     
     def enterEventConstraintNP(self, ctx: OvernightParser.EventConstraintNPContext):
@@ -352,7 +394,7 @@ class IREmitter(OvernightListener):
         return super().enterEventConstraintNP(ctx)
     
     def exitEventConstraintNP(self, ctx: OvernightParser.EventConstraintNPContext):
-        self.insertEntitySet(ctx.parentCtx, "{} {}".format(self.scoping("concept", ctx.slots["predicate"]), self.scoping("entity", ctx.slots["entitySet"])))
+        self.insert_entityset(ctx.parentCtx, "{} {}".format(self.scoping("concept", ctx.slots["predicate"]), self.scoping("entity", ctx.slots["entitySet"])))
         return super().exitEventConstraintNP(ctx)
     
     def enterVoidConstraintNP(self, ctx: OvernightParser.VoidConstraintNPContext):
@@ -360,39 +402,42 @@ class IREmitter(OvernightListener):
         return super().enterVoidConstraintNP(ctx)
 
     def exitVoidConstraintNP(self, ctx: OvernightParser.VoidConstraintNPContext):
-        self.insertEntitySet(ctx.parentCtx, "ones", is_pop=True)
+        self.insert_entityset(ctx.parentCtx, "ones", is_pop=True)
         return super().exitVoidConstraintNP(ctx)
     
     def exitEqual(self, ctx: OvernightParser.EqualContext):
-        ctx.parentCtx.slots["OP"] = "is"
-        return super().exitEqual(ctx)
+        if not isinstance(ctx.parentCtx, (OvernightParser.SuperlativeByPredicateContext, OvernightParser.SuperlativeByReversePredicateContext, OvernightParser.ComparativeByPredicateContext, OvernightParser.ComparativeByReversePredicateContext)):
+            ctx.parentCtx.slots["OP"] = self.OP_vocab["="]
+        # else:
+        #     ctx.parentCtx.slots["OP"] = " "
+        return super().exitEqual(ctx) 
     
     def exitNotEqual(self, ctx: OvernightParser.NotEqualContext):
-        ctx.parentCtx.slots["OP"] = "is not"
+        ctx.parentCtx.slots["OP"] = self.OP_vocab["!="]
         return super().exitNotEqual(ctx)
     
     def exitLessThan(self, ctx: OvernightParser.LessThanContext):
-        ctx.parentCtx.slots["OP"] = "less than"
+        ctx.parentCtx.slots["OP"] = self.OP_vocab["<"]
         return super().exitLessThan(ctx)
     
     def exitGreaterThan(self, ctx: OvernightParser.GreaterThanContext):
-        ctx.parentCtx.slots["OP"] = "greater than"
+        ctx.parentCtx.slots["OP"] = self.OP_vocab[">"]
         return super().exitGreaterThan(ctx)
     
     def exitLessThanOrEqual(self, ctx: OvernightParser.LessThanOrEqualContext):
-        ctx.parentCtx.slots["OP"] = "at most"
+        ctx.parentCtx.slots["OP"] = self.OP_vocab["<="]
         return super().exitLessThanOrEqual(ctx)
     
     def exitGreaterThanOrEqual(self, ctx: OvernightParser.GreaterThanOrEqualContext):
-        ctx.parentCtx.slots["OP"] = "at least"
+        ctx.parentCtx.slots["OP"] = self.OP_vocab[">="]
         return super().exitGreaterThanOrEqual(ctx)
     
     def exitMin(self, ctx: OvernightParser.MinContext):
-        ctx.parentCtx.slots["OP"] = "least"
+        ctx.parentCtx.slots["OP"] = self.OP_vocab["min"]
         return super().exitMin(ctx)
     
     def exitMax(self, ctx: OvernightParser.MaxContext):
-        ctx.parentCtx.slots["OP"] = "most"
+        ctx.parentCtx.slots["OP"] = self.OP_vocab["max"]
         return super().exitMax(ctx)
     
     def exitSumAggregate(self, ctx: OvernightParser.SumAggregateContext):
@@ -463,7 +508,7 @@ class IREmitter(OvernightListener):
         return super().exitQuantity(ctx)
     
     def exitDate(self, ctx: OvernightParser.DateContext):
-        ctx.parentCtx.slots["date"] = str(ctx.getText()).replace("date ", "").replace(" -", "-")
+        ctx.parentCtx.slots["date"] = str(ctx.getText()).replace("date ", "")
         return super().exitDate(ctx)
     
     def exitTime(self, ctx: OvernightParser.TimeContext):

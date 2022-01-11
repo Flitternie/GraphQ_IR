@@ -34,8 +34,10 @@ def train(args):
         from bart2query.program.predict import validate
     elif args.mode == 'sparql':
         from bart2query.sparql.predict import validate
-    elif args.mode == 'lambda':
+    elif args.mode == 'overnight':
         from bart2query.overnight.predict import validate
+    elif args.mode == 'cypher':
+        from bart2query.cypher.predict import validate
     elif args.mode == 'ir':
         from bart2ir.predict import validate
     else:
@@ -239,7 +241,7 @@ def main():
                     help='node rank for distributed training')
     parser.add_argument('--port', default=12355, type=int)
 
-    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'ir', 'lambda'])
+    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'ir', 'overnight', 'cypher'])
     parser.add_argument('--parser', default=None, type=str)
     parser.add_argument('--ir_mode', default=None, choices=['rir', 'lir'])
     

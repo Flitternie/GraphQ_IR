@@ -2,14 +2,15 @@ parser grammar UnifiedIRParser;
 
 options { tokenVocab = UnifiedIRLexer; }
 
-query
+root
     : ( entityQuery
     | attributeQuery
     | predicateQuery
     | qualifierQuery
     | countQuery
     | verifyQuery 
-    | selectQuery ) EOF
+    | selectQuery
+    | valueQuery ) EOF
     ;
 
 entityQuery
@@ -40,8 +41,8 @@ selectQuery
     : Select filterByRank Among entitySet
     ;
 
-aggregateQuery
-    : What aggregateOP Of valueSet
+valueQuery
+    : What valueSet
     ;
 
 verify
@@ -92,9 +93,9 @@ filterByAttribute
     ;
 
 filterByPredicate
-    : That? predicate direction? To
-    | That? predicate direction? To symbolOP? number
-    | That? predicate direction? To stringOP
+    : That? logicGate? predicate direction? To
+    | That? logicGate? predicate direction? To symbolOP? valueSet
+    | That? logicGate? predicate direction? To stringOP
     ;
 
 filterByQualifier
@@ -109,6 +110,10 @@ direction
 setOP
     : And #and
     | Or  #or
+    ;
+
+logicGate
+    : Not #not
     ;
 
 symbolOP
@@ -131,7 +136,8 @@ aggregateOP
     ;
 
 valueSet
-    : aggregateOP Of valueSet #valueByAggregate
+    : valueType valueSet Or valueSet #valueByUnion
+    | aggregateOP Of valueSet #valueByAggregate
     | attribute Of entitySet #valueByAttribute
     | valueType? value #valueAtom
     ;

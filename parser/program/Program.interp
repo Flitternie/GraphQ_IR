@@ -97,7 +97,7 @@ FUNC_SEP
 IN_FUNC_SEP
 
 rule names:
-query
+root
 whatEntityQuery
 howManyEntityQuery
 whatAttributeQuery

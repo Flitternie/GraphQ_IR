@@ -26,7 +26,7 @@ def inference(args):
         from bart2query.program.predict import validate, predict
     elif args.mode == 'sparql':
         from bart2query.sparql.predict import validate, predict
-    elif args.mode == 'lambda':
+    elif args.mode == 'overnight':
         from bart2query.overnight.predict import validate, predict
     elif args.mode == 'ir':
         from bart2ir.predict import validate, predict
@@ -66,7 +66,7 @@ def main():
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--seed', type=int, default=666, help='random seed')
 
-    parser.add_argument('--mode', required=True, choices= ['program', 'sparql', 'lambda', 'ir'])
+    parser.add_argument('--mode', required=True, choices= ['program', 'sparql', 'overnight', 'ir'])
     parser.add_argument('--validate', default = True, type = bool)
 
     # validating parameters

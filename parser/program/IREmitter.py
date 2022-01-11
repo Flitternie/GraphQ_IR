@@ -16,6 +16,9 @@ class entitySet():
         self.is_atom = is_atom
         self.is_pop = is_pop
     
+    def __getattr__(self, name):
+        return getattr(self.value, name)
+    
     def __str__(self):
         return self.value
     
@@ -24,7 +27,7 @@ class entitySet():
     
     def __len__(self):
         return len(self.value)
-
+        
 
 class IREmitter(ProgramListener):
     def __init__(self):
@@ -61,58 +64,53 @@ class IREmitter(ProgramListener):
             "WhatRelationQualifierQuery": "what is the qualifier {} of {} that {} to {}",
         }
         
-    def getIR(self, ctx):
+    def get_ir(self, ctx):
         return self.ir
     
-    def insertEntitySet(self, ctx, value, isAtom=False, fromPop=False):
+    def insert_entityset(self, ctx, value, is_atom=False, is_pop=False):
         if isinstance(ctx.slots["entitySet"], list):
-            ctx.slots["entitySet"].append()
+            ctx.slots["entitySet"].append(entitySet(value, is_atom=is_atom, is_pop=is_pop))
         else: 
-            ctx.slots["entitySet"] = {"value":value, "isAtom":isAtom, "fromPop":fromPop}
+            ctx.slots["entitySet"] = entitySet(value, is_atom=is_atom, is_pop=is_pop)
     
-    def findAuxEntitySet(self, ctx):
+    def find_aux_entityset(self, ctx):
         assert isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
-        if ctx.slots["entitySet"][0]["value"].startswith("ones"):
+        if ctx.slots["entitySet"][0].startswith("ones"):
             ctx.slots["entitySet"] = [ctx.slots["entitySet"][1], ctx.slots["entitySet"][0]]
             return True
-        elif ctx.slots["entitySet"][1]["value"].startswith("ones"):
+        elif ctx.slots["entitySet"][1].startswith("ones"):
             return True
         else:
             return False
 
     def scoping(self, type, value):
+        if type not in self.data_type.keys():
+            raise TypeError("{} is not a valid type.".format(type))
         if value == "":
             return ""
         if type == "entity":
-            if value["fromPop"]:
-                return value["value"]
-            elif value["isAtom"]:
-                return "<{}> {} </{}>".format(self.data_type[type], value["value"], self.data_type[type])
-            else:
-                return "<{}> {} </{}>".format(self.data_type["entitySet"], value["value"], self.data_type["entitySet"])
-        elif type not in self.data_type.keys():
-            raise TypeError("{} is not a valid type.".format(type))
+            if value.is_pop:
+                return value
+            elif not value.is_atom:
+                return "<{}> {} </{}>".format(self.data_type["entitySet"], value, self.data_type["entitySet"])
         return "<{}> {} </{}>".format(self.data_type[type], value, self.data_type[type])
 
-
-    def enterQuery(self, ctx: ProgramParser.QueryContext):
+    def enterRoot(self, ctx: ProgramParser.RootContext):
         self.ir = ""
         ctx.slots = {"query": ""}
-        return super().enterQuery(ctx)
-    
-    def exitQuery(self, ctx: ProgramParser.QueryContext):
-        self.ir = ctx.slots["query"]
-        return super().exitQuery(ctx)
+        return super().enterRoot(ctx)
 
-
+    def exitRoot(self, ctx: ProgramParser.RootContext):
+        self.ir = str(ctx.slots["query"])
+        return super().exitRoot(ctx)    
 
     def enterWhatEntityQuery(self, ctx: ProgramParser.WhatEntityQueryContext):
         ctx.slots = {"entitySet": ""}
         return super().enterWhatEntityQuery(ctx)
     
     def exitWhatEntityQuery(self, ctx: ProgramParser.WhatEntityQueryContext):
-        if ctx.slots["entitySet"]["value"].startswith("which"):
-            ctx.parentCtx.slots["query"] = ctx.slots["entitySet"]["value"]
+        if str(ctx.slots["entitySet"]).startswith("which"):
+            ctx.parentCtx.slots["query"] = ctx.slots["entitySet"]
         else:
             ctx.parentCtx.slots["query"] = self.skeleton["WhatEntityQuery"].format(self.scoping("entity", ctx.slots["entitySet"]))
         return super().exitWhatEntityQuery(ctx)
@@ -201,10 +199,10 @@ class IREmitter(ProgramListener):
     
     def exitEntitySetByOP(self, ctx: ProgramParser.EntitySetByOPContext):
         assert isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
-        if ctx.slots["setOP"] == self.setOP_vocab["and"] and self.findAuxEntitySet(ctx):
-            self.insertEntitySet(ctx.parentCtx, "{} ({})".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("entity", ctx.slots["entitySet"][1])))
+        if ctx.slots["setOP"] == self.setOP_vocab["and"] and self.find_aux_entityset(ctx):
+            self.insert_entityset(ctx.parentCtx, "{} ({})".format(self.scoping("entity", ctx.slots["entitySet"][0]), self.scoping("entity", ctx.slots["entitySet"][1])))
         else:
-            self.insertEntitySet(ctx.parentCtx, "{} {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), ctx.slots["setOP"], self.scoping("entity", ctx.slots["entitySet"][1])))
+            self.insert_entityset(ctx.parentCtx, "{} {} {}".format(self.scoping("entity", ctx.slots["entitySet"][0]), ctx.slots["setOP"], self.scoping("entity", ctx.slots["entitySet"][1])))
         return super().exitEntitySetByOP(ctx)
 
     def enterEntitySetByRank(self, ctx: ProgramParser.EntitySetByRankContext):
@@ -212,7 +210,7 @@ class IREmitter(ProgramListener):
         return super().enterEntitySetByRank(ctx)
     
     def exitEntitySetByRank(self, ctx: ProgramParser.EntitySetByRankContext):
-        self.insertEntitySet(ctx.parentCtx, "{} among {}".format(ctx.slots["attributeRankFilter"], self.scoping("entity", ctx.slots["entitySet"])))
+        self.insert_entityset(ctx.parentCtx, "{} among {}".format(ctx.slots["attributeRankFilter"], self.scoping("entity", ctx.slots["entitySet"])))
         return super().exitEntitySetByRank(ctx)
     
     # def enterEntitySetNested(self, ctx: ProgramParser.EntitySetNestedContext):
@@ -222,11 +220,11 @@ class IREmitter(ProgramListener):
     # def exitEntitySetNested(self, ctx: ProgramParser.EntitySetNestedContext):
     #     if ctx.slots["relationFilter"]:
     #         if ctx.slots["conceptFilter"]:
-    #             self.insertEntitySet(ctx.parentCtx, "the {}{} {}{}".format(ctx.slots["conceptFilter"], ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
+    #             self.insert_entityset(ctx.parentCtx, "the {}{} {}{}".format(ctx.slots["conceptFilter"], ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
     #         else:
-    #             self.insertEntitySet(ctx.parentCtx, "the one {} {}{}".format(ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
+    #             self.insert_entityset(ctx.parentCtx, "the one {} {}{}".format(ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
     #     elif ctx.slots["attributeFilter"]:
-    #         self.insertEntitySet(ctx.parentCtx, "{}{} {}{}".format(ctx.slots["conceptFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
+    #         self.insert_entityset(ctx.parentCtx, "{}{} {}{}".format(ctx.slots["conceptFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
     #     return super().exitEntitySetNested(ctx)
     
     # def enterEntitySetByFilter(self, ctx: ProgramParser.EntitySetByFilterContext):
@@ -234,7 +232,7 @@ class IREmitter(ProgramListener):
     #     return super().enterEntitySetByFilter(ctx)
     
     # def exitEntitySetByFilter(self, ctx: ProgramParser.EntitySetByFilterContext):
-    #     self.insertEntitySet(ctx.parentCtx, "{}{}{}".format(ctx.slots["conceptFilter"], ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
+    #     self.insert_entityset(ctx.parentCtx, "{}{}{}".format(ctx.slots["conceptFilter"], ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
     #     return super().exitEntitySetByFilter(ctx)
     
     def enterEntitySetByRelation(self, ctx: ProgramParser.EntitySetByRelationContext):
@@ -243,9 +241,9 @@ class IREmitter(ProgramListener):
     
     def exitEntitySetByRelation(self, ctx: ProgramParser.EntitySetByRelationContext):
         if ctx.slots["conceptFilter"]:
-            self.insertEntitySet(ctx.parentCtx, "{}{} {}{}".format(ctx.slots["conceptFilter"], ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
+            self.insert_entityset(ctx.parentCtx, "{}{} {}{}".format(ctx.slots["conceptFilter"], ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
         else:
-            self.insertEntitySet(ctx.parentCtx, "ones {} {}{}".format(ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
+            self.insert_entityset(ctx.parentCtx, "ones {} {}{}".format(ctx.slots["relationFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["qualifierFilter"]))
         return super().exitEntitySetByRelation(ctx)
     
     def enterEntitySetByAttribute(self, ctx: ProgramParser.EntitySetByAttributeContext):
@@ -254,12 +252,12 @@ class IREmitter(ProgramListener):
 
     def exitEntitySetByAttribute(self, ctx: ProgramParser.EntitySetByAttributeContext):
         if ctx.slots["conceptFilter"]:
-            if ctx.slots["entitySet"]["fromPop"]:
-                self.insertEntitySet(ctx.parentCtx, "{}{}{}".format(ctx.slots["conceptFilter"], ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
+            if ctx.slots["entitySet"].is_pop:
+                self.insert_entityset(ctx.parentCtx, "{}{}{}".format(ctx.slots["conceptFilter"], ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
             else:
-                self.insertEntitySet(ctx.parentCtx, "{}{} {}{}".format(ctx.slots["conceptFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
+                self.insert_entityset(ctx.parentCtx, "{}{} {}{}".format(ctx.slots["conceptFilter"], self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
         else:
-            self.insertEntitySet(ctx.parentCtx, "{} {}{}".format(self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
+            self.insert_entityset(ctx.parentCtx, "{} {}{}".format(self.scoping("entity", ctx.slots["entitySet"]), ctx.slots["attributeFilter"], ctx.slots["qualifierFilter"]))
         return super().exitEntitySetByAttribute(ctx)
     
     def enterEntitySetByConcept(self, ctx: ProgramParser.EntitySetByConceptContext):
@@ -267,16 +265,16 @@ class IREmitter(ProgramListener):
         return super().enterEntitySetByConcept(ctx)
 
     def exitEntitySetByConcept(self, ctx: ProgramParser.EntitySetByConceptContext):
-        self.insertEntitySet(ctx.parentCtx, "{}{}".format(ctx.slots["conceptFilter"], self.scoping("entity", ctx.slots["entitySet"])))
+        self.insert_entityset(ctx.parentCtx, "{}{}".format(ctx.slots["conceptFilter"], self.scoping("entity", ctx.slots["entitySet"])))
         return super().exitEntitySetByConcept(ctx)
     
     def exitEntitySetPopulation(self, ctx: ProgramParser.EntitySetPopulationContext):
         if isinstance(ctx.parentCtx, ProgramParser.EntitySetByRelationContext):
             return super().exitEntitySetPopulation(ctx)
         if isinstance(ctx.parentCtx, ProgramParser.EntitySetByConceptContext):
-            self.insertEntitySet(ctx.parentCtx, "", fromPop=True)
+            self.insert_entityset(ctx.parentCtx, "", is_pop=True)
         else:
-            self.insertEntitySet(ctx.parentCtx, "ones", fromPop=True)
+            self.insert_entityset(ctx.parentCtx, "ones", is_pop=True)
         return super().exitEntitySetPopulation(ctx)
     
     def enterEntitySetAtom(self, ctx: ProgramParser.EntitySetAtomContext):
@@ -284,7 +282,7 @@ class IREmitter(ProgramListener):
         return super().enterEntitySetAtom(ctx)
     
     def exitEntitySetAtom(self, ctx: ProgramParser.EntitySetAtomContext):
-        self.insertEntitySet(ctx.parentCtx, ctx.slots["entity"], isAtom=True)
+        self.insert_entityset(ctx.parentCtx, ctx.slots["entity"], is_atom=True)
         return super().exitEntitySetAtom(ctx)
 
 

@@ -12,24 +12,22 @@ from antlr4.InputStream import InputStream
 from .overnight.OvernightLexer import OvernightLexer
 from .overnight.OvernightParser import OvernightParser
 
-from antlr4.error.ErrorListener import ErrorListener
-from antlr4.error.Errors import ParseCancellationException
-
 class ParsingOvernight():
     def __init__(self):
         self.walker = ParseTreeWalker() 
         self.errors = []
 
-    def parse(self, line):
-        input_stream = InputStream(line)
+    def parse(self, input):
+        input_stream = InputStream(input)
         lexer = OvernightLexer(input_stream)       
         token_stream = CommonTokenStream(lexer)
         parser = OvernightParser(token_stream)
         
         try:
             tree = parser.root()
-            # lisp_tree_str = tree.toStringTree(recog=parser)
-            # print(lisp_tree_str)
+            lisp_tree_str = tree.toStringTree(recog=parser)
         except Exception:
-            self.errors.append(line)
-        
+            self.errors.append(input)
+            return None
+
+        return lisp_tree_str

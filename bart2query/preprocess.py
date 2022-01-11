@@ -6,9 +6,26 @@ import numpy as np
 from itertools import chain
 from tqdm import tqdm
 import re
+import regex
+import random
+
+random.seed(666)
 
 from utils.misc import init_vocab
 from transformers import *
+
+overnight_domains = ['basketball', 'blocks', 'calendar', 'housing', 'publications', 'recipes', 'restaurants', 'socialnetwork']
+
+def read_overnight(path, domain_idx):
+    ex_list = []
+    with open(path, 'r') as infile:
+        for line in infile:
+            line = line.strip()
+            if line == '':
+                continue
+            q, lf = line.split('\t')
+            ex_list.append({'question': q.strip(), 'LF': lf.strip(), 'domain': domain_idx})
+    return ex_list
 
 def get_program_seq(program):
     seq = []
@@ -48,6 +65,34 @@ def get_program_seq_ordered(program, idx=-1):
 
     return seq
 
+def reorder(sparql):
+    subqueries = regex.search(r'''
+    (?<rec> #capturing group rec
+    \{ #open parenthesis
+    (?: #non-capturing group
+    [^{}]++ #anyting but parenthesis one or more times without backtracking
+    | #or
+    (?&rec) #recursive substitute of group rec
+    )*
+    \} #close parenthesis
+    )
+    ''', sparql ,flags=regex.VERBOSE).captures('rec')
+
+    to_reorder = []
+
+    for subquery in subqueries:
+        subquery = subquery.strip()[1:-1]
+        triples = re.sub(r"(\{.*\})", "", subquery).strip()
+        triples = [i.strip() for i in triples.split(" .") if i]
+        random.shuffle(triples)
+        reordered_subquery = " . ".join(triples) + " . "
+        to_reorder.append((subquery, reordered_subquery))
+
+    for i in to_reorder:
+        sparql = sparql.replace(i[0], i[1])
+        
+    return sparql
+
 def encode_dataset(mode, dataset, vocab, tokenizer, test = False):
     questions = []
     target_queries = []
@@ -56,13 +101,17 @@ def encode_dataset(mode, dataset, vocab, tokenizer, test = False):
     for item in tqdm(dataset):
         question = item['rewrite'] if 'rewrite' in item.keys() else item['question']
         questions.append(question)
-        _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
-        choices.append(_)
+        if mode == 'program' or mode == 'sparql':
+            _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
+            choices.append(_)
         if not test:
             if mode == 'program':
-                target_query = get_program_seq_ordered(item['program'])  
+                target_query = get_program_seq(item['program'])  
             elif mode == 'sparql':
                 target_query = item['sparql']
+            elif mode == 'overnight':
+                target_query = item['LF']
+                answers.append(item['domain'])
             target_queries.append(target_query)
             answers.append(vocab['answer_token_to_idx'].get(item['answer']))
     
@@ -80,8 +129,10 @@ def encode_dataset(mode, dataset, vocab, tokenizer, test = False):
         target_ids = np.array(target_ids['input_ids'], dtype = np.int32)
     else:
         target_ids = np.array([], dtype = np.int32)
-    choices = np.array(choices, dtype = np.int32)
+
+    choices = np.array(choices, dtype = np.int32) if choices else np.array([0]*len(questions), dtype = np.int32)
     answers = np.array(answers, dtype = np.int32)
+    
     return source_ids, source_mask, target_ids, choices, answers
 
 
@@ -92,7 +143,7 @@ def main():
     parser.add_argument('--output_dir', required=True)
     parser.add_argument('--model_name_or_path', required=True)
 
-    parser.add_argument('--mode', required=True, choices=["program", "sparql"])
+    parser.add_argument('--mode', required=True, choices=["program", "sparql", "overnight"])
     args = parser.parse_args()
 
     print('Build kb vocabulary')
@@ -100,26 +151,37 @@ def main():
         'answer_token_to_idx': {}
     }
     print('Load questions')
-    train_set = json.load(open(os.path.join(args.input_dir, 'train.json')))
-    val_set = json.load(open(os.path.join(args.input_dir, 'val.json')))
-    test_set = json.load(open(os.path.join(args.input_dir, 'test.json')))
-    for question in chain(train_set, val_set, test_set):
-        for a in question['choices']:
-            if not a in vocab['answer_token_to_idx']:
-                vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
+
+    if args.mode == 'program' or args.mode == 'sparql':
+        train_set = json.load(open(os.path.join(args.input_dir, 'train.json')))
+        val_set = json.load(open(os.path.join(args.input_dir, 'val.json')))
+        test_set = json.load(open(os.path.join(args.input_dir, 'test.json')))
+        for question in chain(train_set, val_set, test_set):
+            for a in question['choices']:
+                if not a in vocab['answer_token_to_idx']:
+                    vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
+    elif args.mode == 'overnight':
+        train_set, val_set, test_set = [], [], []
+        for domain in overnight_domains:
+            idx = overnight_domains.index(domain)
+            train_data = read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), idx)
+            random.shuffle(train_data)
+            train_set += train_data[:int(len(train_data) * 0.8)]
+            val_set += train_data[int(len(train_data) * 0.8):]
+            test_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
 
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir, exist_ok = True)
+
     fn = os.path.join(args.output_dir, 'vocab.json')
     print('Dump vocab to {}'.format(fn))
+
     with open(fn, 'w') as f:
         json.dump(vocab, f, indent=2)
-    for k in vocab:
-        print('{}:{}'.format(k, len(vocab[k])))
-
+    
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
     
-    for name, dataset in zip(('train', 'val', 'test'), (train_set, val_set, test_set, test_set)):
+    for name, dataset in zip(('train', 'val', 'test'), (train_set, val_set, test_set)):
         print('Encode {} set'.format(name))
         outputs = encode_dataset(args.mode, dataset, vocab, tokenizer)
         assert len(outputs) == 5

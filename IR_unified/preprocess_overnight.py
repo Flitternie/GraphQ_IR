@@ -8,28 +8,19 @@ import random
 from utils import *
 from transformers import *
 
-overnight_domains = ['basketball', 'blocks', 'calendar', 'housing', 'publications', 'recipes', 'restaurants', 'socialnetwork']
-
-def read_data(path, domain_idx):
-    ex_list = []
-    with open(path, 'r') as infile:
-        for line in infile:
-            line = line.strip()
-            if line == '':
-                continue
-            q, lf = line.split('\t')
-            ex_list.append({"q": q.strip(), "lf": lf.strip(), "domain": domain_idx})
-    return ex_list
-
+from parser.overnight import OvernightIRTranslator
+from bart2query.preprocess import overnight_domains, read_overnight
 
 def encode_dataset(dataset, vocab, tokenizer):
     queries = []
     lfs = []
     domain_idx = []
+
+    translator =  OvernightIRTranslator.IR_translator()
     
     for item in tqdm(dataset):
-        queries.append(item['q'])
-        lfs.append(item['lf'])
+        queries.append(item['question'])
+        lfs.append(translator.lambda_to_ir(item['LF']))
         domain_idx.append(item['domain'])
             
     sequences = queries + lfs
@@ -71,11 +62,11 @@ def main():
     train_set, val_set, test_set = [], [], []
     for domain in args.domain:
         idx = overnight_domains.index(domain)
-        train_data = read_data(os.path.join(args.input_dir, domain + '_train.tsv'), idx)
+        train_data = read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), idx)
         random.shuffle(train_data)
         train_set += train_data[:int(len(train_data) * 0.8)]
         val_set += train_data[int(len(train_data) * 0.8):]
-        test_set += read_data(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
+        test_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
     
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir, exist_ok=True)

@@ -7,7 +7,7 @@ WS
     | '\r' )+ ->skip
     ;
 
-query
+root
     : ( whatEntityQuery 
     | howManyEntityQuery 
     | whatAttributeQuery 

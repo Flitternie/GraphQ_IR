@@ -1,4 +1,4 @@
-# Generated from ./UnifiedIRParser.g4 by ANTLR 4.9.2
+# Generated from ./parser/ir/UnifiedIRParser.g4 by ANTLR 4.9.2
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .UnifiedIRParser import UnifiedIRParser
@@ -8,12 +8,12 @@ else:
 # This class defines a complete listener for a parse tree produced by UnifiedIRParser.
 class UnifiedIRParserListener(ParseTreeListener):
 
-    # Enter a parse tree produced by UnifiedIRParser#query.
-    def enterQuery(self, ctx:UnifiedIRParser.QueryContext):
+    # Enter a parse tree produced by UnifiedIRParser#root.
+    def enterRoot(self, ctx:UnifiedIRParser.RootContext):
         pass
 
-    # Exit a parse tree produced by UnifiedIRParser#query.
-    def exitQuery(self, ctx:UnifiedIRParser.QueryContext):
+    # Exit a parse tree produced by UnifiedIRParser#root.
+    def exitRoot(self, ctx:UnifiedIRParser.RootContext):
         pass
 
 
@@ -80,12 +80,12 @@ class UnifiedIRParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by UnifiedIRParser#aggregateQuery.
-    def enterAggregateQuery(self, ctx:UnifiedIRParser.AggregateQueryContext):
+    # Enter a parse tree produced by UnifiedIRParser#valueQuery.
+    def enterValueQuery(self, ctx:UnifiedIRParser.ValueQueryContext):
         pass
 
-    # Exit a parse tree produced by UnifiedIRParser#aggregateQuery.
-    def exitAggregateQuery(self, ctx:UnifiedIRParser.AggregateQueryContext):
+    # Exit a parse tree produced by UnifiedIRParser#valueQuery.
+    def exitValueQuery(self, ctx:UnifiedIRParser.ValueQueryContext):
         pass
 
 
@@ -179,6 +179,15 @@ class UnifiedIRParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by UnifiedIRParser#entitySetByRank.
+    def enterEntitySetByRank(self, ctx:UnifiedIRParser.EntitySetByRankContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#entitySetByRank.
+    def exitEntitySetByRank(self, ctx:UnifiedIRParser.EntitySetByRankContext):
+        pass
+
+
     # Enter a parse tree produced by UnifiedIRParser#filterByRank.
     def enterFilterByRank(self, ctx:UnifiedIRParser.FilterByRankContext):
         pass
@@ -248,6 +257,15 @@ class UnifiedIRParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by UnifiedIRParser#or.
     def exitOr(self, ctx:UnifiedIRParser.OrContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#not.
+    def enterNot(self, ctx:UnifiedIRParser.NotContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#not.
+    def exitNot(self, ctx:UnifiedIRParser.NotContext):
         pass
 
 
@@ -341,6 +359,15 @@ class UnifiedIRParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by UnifiedIRParser#valueByUnion.
+    def enterValueByUnion(self, ctx:UnifiedIRParser.ValueByUnionContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#valueByUnion.
+    def exitValueByUnion(self, ctx:UnifiedIRParser.ValueByUnionContext):
+        pass
+
+
     # Enter a parse tree produced by UnifiedIRParser#valueByAggregate.
     def enterValueByAggregate(self, ctx:UnifiedIRParser.ValueByAggregateContext):
         pass
@@ -401,6 +428,15 @@ class UnifiedIRParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by UnifiedIRParser#year.
     def exitYear(self, ctx:UnifiedIRParser.YearContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#time.
+    def enterTime(self, ctx:UnifiedIRParser.TimeContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#time.
+    def exitTime(self, ctx:UnifiedIRParser.TimeContext):
         pass
 
 
