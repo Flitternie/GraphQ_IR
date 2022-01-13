@@ -1,7 +1,3 @@
-"""
-We need the last function to help extract the final answer of SPARQL, used in check_sparql
-"""
-
 import os
 import json
 import pickle

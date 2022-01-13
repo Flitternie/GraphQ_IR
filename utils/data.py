@@ -1,8 +1,70 @@
+import os
 import json
+from itertools import chain
 from logging import basicConfig
 import pickle
+import random
 import torch
 from utils.misc import invert_dict
+
+overnight_domains = ['basketball', 'blocks', 'calendar', 'housing', 'publications', 'recipes', 'restaurants', 'socialnetwork']
+
+def load_kqapro(args):
+    print('Build kb vocabulary')
+    vocab = {
+        'answer_token_to_idx': {}
+    }
+
+    print('Load questions')
+    train_set = json.load(open(os.path.join(args.input_dir, 'train.json')))
+    val_set = json.load(open(os.path.join(args.input_dir, 'val.json')))
+    test_set = json.load(open(os.path.join(args.input_dir, 'test.json')))
+    for question in chain(train_set, val_set, test_set):
+        for a in question['choices']:
+            if not a in vocab['answer_token_to_idx']:
+                vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
+    
+    return train_set, val_set, test_set, vocab
+
+def read_overnight(path, domain_idx):
+    ex_list = []
+    with open(path, 'r') as infile:
+        for line in infile:
+            line = line.strip()
+            if line == '':
+                continue
+            q, lf = line.split('\t')
+            ex_list.append({'question': q.strip(), 'LF': lf.strip(), 'domain': domain_idx})
+    return ex_list
+
+def load_overnight(args):
+    print('Build kb vocabulary')
+    vocab = {
+        'answer_token_to_idx': {}
+    }
+
+    print('Load questions')
+    train_set, val_set, test_set = [], [], []
+    if args.cross_domain:
+        for domain in list(filter(lambda x: x not in args.domain, overnight_domains)):
+            idx = overnight_domains.index(domain)
+            train_set += read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), idx)
+            # train_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
+        domain = args.domain[0]
+        val_set += read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), overnight_domains.index(domain))
+        test_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), overnight_domains.index(domain))
+        return train_set, val_set, test_set, vocab
+    
+    else:
+        for domain in args.domain:
+            idx = overnight_domains.index(domain)
+            train_data = read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), idx)
+            random.shuffle(train_data)
+            train_set += train_data[:int(len(train_data) * 0.8)]
+            val_set += train_data[int(len(train_data) * 0.8):]
+            test_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
+        
+        return train_set, val_set, test_set, vocab
 
 def load_vocab(path):
     vocab = json.load(open(path))

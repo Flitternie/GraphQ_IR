@@ -3,51 +3,55 @@ import json
 import pickle
 import argparse
 import numpy as np
-from nltk import word_tokenize
-from collections import Counter
 from itertools import chain
 from tqdm import tqdm
-import re
+import random
 
-from utils.misc import init_vocab
 from transformers import *
+from utils.data import load_kqapro, load_overnight, overnight_domains
 
-def encode_dataset(dataset, vocab, tokenizer, args):
-    queries = []
+def encode_dataset(mode, dataset, vocab, tokenizer):
+    questions = []
     irs = []
     choices = []
     answers = []
 
-    if "new" in args.input_dir:
-        from parser.program import translator
-    else:
-        from parser._program import ProgramIRTranslator
-
-    translator =  translator.IR_translator()
+    if mode == 'program' or mode == 'sparql':
+        from parser.program.translator import Translator    
+    elif mode == 'overnight':
+        from parser.overnight.translator import Translator
+    translator = Translator()
     
     for item in tqdm(dataset):
-        queries.append(item['rewrite'])
-        _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
-        choices.append(_)
+        question = item['rewrite'] if 'rewrite' in item.keys() else item['question']
+        questions.append(question)
         
-        irs.append(translator.program_to_ir(item["program"]))
-        answers.append(vocab['answer_token_to_idx'].get(item['answer']))
+        logical_form = item['program'] if 'program' in item.keys() else item['LF']
+        irs.append(translator.to_ir(logical_form))
 
-    sequences = queries + irs
+        if mode == 'program' or mode == 'sparql':
+            _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
+            choices.append(_)
+            answers.append(vocab['answer_token_to_idx'].get(item['answer']))
+        elif mode == 'overnight':
+            answers.append(item['domain'])
+
+    sequences = questions + irs
     encoded_inputs = tokenizer(sequences, padding = True)
     
     max_seq_length = len(encoded_inputs['input_ids'][0])
     assert max_seq_length == len(encoded_inputs['input_ids'][-1])
     
-    input_ids = tokenizer.batch_encode_plus(queries, max_length = max_seq_length, pad_to_max_length = True, truncation = True)
+    input_ids = tokenizer.batch_encode_plus(questions, max_length = max_seq_length, padding='max_length', truncation = True)
     source_ids = np.array(input_ids['input_ids'], dtype = np.int32)
     source_mask = np.array(input_ids['attention_mask'], dtype = np.int32)
     
-    target_ids = tokenizer.batch_encode_plus(irs, max_length = max_seq_length, pad_to_max_length = True, truncation = True)
+    target_ids = tokenizer.batch_encode_plus(irs, max_length = max_seq_length, padding='max_length', truncation = True)
     target_ids = np.array(target_ids['input_ids'], dtype = np.int32)
     
-    choices = np.array(choices, dtype = np.int32)
+    choices = np.array(choices, dtype = np.int32) if choices else np.array([0]*len(questions), dtype = np.int32)
     answers = np.array(answers, dtype = np.int32)
+
     return source_ids, source_mask, target_ids, choices, answers
 
 
@@ -55,25 +59,22 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', required=True)
     parser.add_argument('--output_dir', required=True)
-    parser.add_argument('--model_name_or_path', required=True)
+    parser.add_argument('--model_name_or_path', required=True)    
 
-    parser.add_argument('--mode', required=True, choices=["program", "sparql", "overnight"])
+    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'overnight'])
     parser.add_argument('--domain', choices=overnight_domains, default='all')
-    
+    parser.add_argument('--cross_domain', action='store_true')
+
+
     args = parser.parse_args() 
 
-    print('Build kb vocabulary')
-    vocab = {
-        'answer_token_to_idx': {}
-    }
-    print('Load questions')
-    train_set = json.load(open(os.path.join(args.input_dir, 'train.json')))
-    val_set = json.load(open(os.path.join(args.input_dir, 'val.json')))
-    test_set = json.load(open(os.path.join(args.input_dir, 'test.json')))
-    for question in chain(train_set, val_set, test_set):
-        for a in question['choices']:
-            if not a in vocab['answer_token_to_idx']:
-                vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
+    args.domain = overnight_domains if args.domain == 'all' else [args.domain]
+    set_seed(666)
+
+    if args.mode == 'program' or args.mode == 'sparql':
+        train_set, val_set, test_set, vocab = load_kqapro(args)
+    elif args.mode == 'overnight':
+        train_set, val_set, test_set, vocab = load_overnight(args)
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir, exist_ok=True)
@@ -84,13 +85,11 @@ def main():
     with open(fn, 'w') as f:
         json.dump(vocab, f, indent=2)
         
-    for k in vocab:
-        print('{}:{}'.format(k, len(vocab[k])))
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
     
     for name, dataset in zip(('train', 'val', 'test'), (train_set, val_set, test_set)):
         print('Encode {} set'.format(name))
-        outputs = encode_dataset(dataset, vocab, tokenizer, args)
+        outputs = encode_dataset(args.mode, dataset, vocab, tokenizer)
         assert len(outputs) == 5
         with open(os.path.join(args.output_dir, '{}.pt'.format(name)), 'wb') as f:
             for o in outputs:

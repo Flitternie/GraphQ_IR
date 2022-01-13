@@ -47,7 +47,9 @@ def main():
     parser.add_argument('--input_dir', required=True)
     parser.add_argument('--output_dir', required=True)
     parser.add_argument('--model_name_or_path', required=True)
+
     parser.add_argument('--domain', choices=overnight_domains, default='all')
+    
     args = parser.parse_args()
 
     args.domain = overnight_domains if args.domain == 'all' else [args.domain]
