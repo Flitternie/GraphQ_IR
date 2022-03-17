@@ -5,7 +5,7 @@ from bart2query.program.executor_rule_new import RuleExecutor
 from utils.data import load_vocab
 import difflib
 
-class IRCorrector():
+class Corrector():
     def __init__(self):
         self.rule_executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
         self.correct_num = 0
@@ -50,7 +50,7 @@ class IRCorrector():
                     self.unique_relation.add(relation["predicate"])
                     self.concept_relation_mapping[name_id].add(relation["predicate"])
     
-    def self_correct(self, ir):
+    def correct(self, ir):
         ir = self.correct_entity(ir)
         ir = self.correct_concept(ir)
         ir = self.correct_attribute(ir)
@@ -106,10 +106,3 @@ class IRCorrector():
                 if bool(retrieved_relation):
                     to_correct[relation] = retrieved_relation[0]
         return self.do_correct(ir, to_correct)
-
-
-def main():
-    pass
-
-if __name__ == '__main__':
-    main()

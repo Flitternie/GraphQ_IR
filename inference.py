@@ -23,13 +23,15 @@ warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql qu
 
 def inference(args):
     if args.mode == 'program':
-        from bart2query.program.predict import validate, predict
+        from bart2query.program.predict import validate
     elif args.mode == 'sparql':
-        from bart2query.sparql.predict import validate, predict
+        from bart2query.sparql.predict import validate
     elif args.mode == 'overnight':
-        from bart2query.overnight.predict import validate, predict
-    elif args.mode == 'ir':
-        from bart2ir.predict import validate, predict
+        from bart2query.overnight.predict import validate
+    elif args.mode == 'cypher':
+        from bart2query.cypher.predict import validate
+    elif args.ir_mode == 'TIR':
+        from bart2query.ir.predict import validate
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -45,20 +47,19 @@ def inference(args):
     model = model_class.from_pretrained(args.ckpt)
     model.resize_token_embeddings(len(tokenizer))
     model = model.to(device)
+
+    _, outputs = validate(args, kb, model, val_loader, device, tokenizer)
     
-    if args.validate:
-        _, outputs = validate(args, kb, model, val_loader, device, tokenizer)
-        # with open("./%s_results.txt"%args.mode, "w+") as f:
-        #     for output in outputs:
-        #         f.write(output.strip() + "\n")
-    else:
-        predict(args, kb, model, val_loader, device, tokenizer)
-    
+    with open(os.path.join(args.output_dir, 'pred_queries.txt'), 'w') as f:
+        for output in outputs:
+            f.write('{}\n'.format(output))
+            
+
 def main():
     parser = argparse.ArgumentParser()
     # input and output
     parser.add_argument('--input_dir', required=True)
-    parser.add_argument('--save_dir', required=True, help='path to save files')
+    parser.add_argument('--output_dir', required=True, help='path to save files')
     parser.add_argument('--model_name_or_path', required = True)
     parser.add_argument('--ckpt', required=True)
 
@@ -66,12 +67,13 @@ def main():
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--seed', type=int, default=666, help='random seed')
 
-    parser.add_argument('--mode', required=True, choices= ['program', 'sparql', 'overnight', 'ir'])
-    parser.add_argument('--validate', default = True, type = bool)
+    parser.add_argument('--mode', required=True, choices= ['program', 'sparql', 'overnight', 'cypher'])
+    parser.add_argument('--ir_mode', default=None, choices=['TIR', 'UIR', 'CFQ_IR'])
+    parser.add_argument('--validate', action='store_false')
+    parser.add_argument('--self_correct', action='store_true')
 
     # validating parameters
     # parser.add_argument('--num_return_sequences', default=1, type=int)
-    # parser.add_argument('--top_p', default=)
 
     # model hyperparameters
     parser.add_argument('--dim_hidden', default=1024, type=int)
@@ -79,10 +81,10 @@ def main():
 
     args = parser.parse_args()
 
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir, exist_ok=True)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir, exist_ok=True)
     time_ = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
-    fileHandler = logging.FileHandler(os.path.join(args.save_dir, '{}.predict.log'.format(time_)))
+    fileHandler = logging.FileHandler(os.path.join(args.output_dir, '{}.predict.log'.format(time_)))
     fileHandler.setFormatter(logFormatter)
     rootLogger.addHandler(fileHandler)
     

@@ -10,7 +10,7 @@ import random
 
 from utils.misc import init_vocab
 from transformers import *
-from utils.data import load_kqapro, load_overnight, overnight_domains
+from utils.data import load_kqapro, load_overnight, overnight_domains, load_metaqa
 
 def get_program_seq(program):
     seq = []
@@ -94,14 +94,17 @@ def encode_dataset(mode, dataset, vocab, tokenizer):
             target_query = item['sparql']
         elif mode == 'overnight':
             target_query = item['LF']
+        elif mode == 'cypher':
+            target_query = item['LF']
         target_queries.append(target_query)
 
         if mode == 'program' or mode == 'sparql':
-            _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
-            choices.append(_)
+            choices.append([vocab['answer_token_to_idx'][w] for w in item['choices']])
             answers.append(vocab['answer_token_to_idx'].get(item['answer']))
         elif mode == 'overnight':
             answers.append(item['domain'])
+        # elif mode == 'cypher':
+            # answers.append(vocab['answer_token_to_idx'].get(";".join(item['answer'])))
 
     sequences = questions + target_queries
     encoded_inputs = tokenizer(sequences, padding = True)
@@ -117,7 +120,7 @@ def encode_dataset(mode, dataset, vocab, tokenizer):
     target_ids = np.array(target_ids['input_ids'], dtype = np.int32)
     
     choices = np.array(choices, dtype = np.int32) if choices else np.array([0]*len(questions), dtype = np.int32)
-    answers = np.array(answers, dtype = np.int32)
+    answers = np.array(answers) if answers else np.array([0]*len(questions), dtype = np.int32)
     
     return source_ids, source_mask, target_ids, choices, answers
 
@@ -127,9 +130,10 @@ def main():
     parser.add_argument('--output_dir', required=True)
     parser.add_argument('--model_name_or_path', required=True)
 
-    parser.add_argument('--mode', required=True, choices=["program", "sparql", "overnight"])
+    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'overnight', 'cypher'])
     parser.add_argument('--domain', choices=overnight_domains, default='all')
     parser.add_argument('--cross_domain', action='store_true')
+    parser.add_argument('--low_resource', default=100, type=int)
     
     args = parser.parse_args()
 
@@ -140,6 +144,8 @@ def main():
         train_set, val_set, test_set, vocab = load_kqapro(args)
     elif args.mode == 'overnight':
         train_set, val_set, test_set, vocab = load_overnight(args)
+    elif args.mode == 'cypher':
+        train_set, val_set, test_set, vocab = load_metaqa(args)
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir, exist_ok=True)

@@ -2,7 +2,6 @@ import sys
 import json
 from itertools import chain
 from tqdm import tqdm
-from importlib import reload
 
 from collections import OrderedDict
 from string import Template
@@ -10,8 +9,9 @@ from string import Template
 from antlr4 import *
 from antlr4.InputStream import InputStream
 
-from .ir.UnifiedIRLexer import UnifiedIRLexer
-from .ir.UnifiedIRParser import UnifiedIRParser
+from .cypher.CypherLexer import CypherLexer
+from .cypher.CypherParser import CypherParser
+from .cypher.CypherListener import CypherListener
 
 class Parser():
     def __init__(self):
@@ -20,9 +20,9 @@ class Parser():
 
     def parse(self, input):
         input_stream = InputStream(input)
-        lexer = UnifiedIRLexer(input_stream)       
+        lexer = CypherLexer(input_stream)       
         token_stream = CommonTokenStream(lexer)
-        parser = UnifiedIRParser(token_stream)
+        parser = CypherParser(token_stream)
         
         try:
             tree = parser.query()
@@ -30,6 +30,6 @@ class Parser():
         except Exception:
             self.errors.append(input)
             return None
-        
-        return lisp_tree_str
-        
+
+        return lisp_tree_str        
+    

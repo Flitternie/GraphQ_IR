@@ -6,6 +6,7 @@ from datetime import date
 from .sparql_engine import get_sparql_answer
 import logging
 import re
+import numpy as np
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
@@ -81,40 +82,62 @@ def post_process(text):
     bingo += chunks[-1]
     return bingo
 
-def vis(args, kb, model, data, device, tokenizer):
-    model = model.module if hasattr(model, "module") else model
-    while True:
-        # text = 'Who is the father of Tony?'
-        # text = 'Donald Trump married Tony, where is the place?'
-        text = input('Input your question:')
-        with torch.no_grad():
-            input_ids = tokenizer.batch_encode_plus([text], max_length = 512, pad_to_max_length = True, return_tensors="pt", truncation = True)
-            source_ids = input_ids['input_ids'].to(device)
-            outputs = model.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            )
-            outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in outputs]
-            outputs = [post_process(output) for output in outputs]
-            print(outputs[0])
+def evaluate(args, given_answer, outputs, kb):
+    count, correct = 0, 0
+    pred_answers = []
+    for a, s in tqdm(zip(given_answer, outputs)):
+        pred_answer = get_sparql_answer(s, kb)
+        if pred_answer == None:
+            pred_answer = 'no'
+        is_match = whether_equal(a, pred_answer)
+        if is_match:
+            correct += 1
+        count += 1
+        pred_answers.append(pred_answer)
+
+    with open(os.path.join(args.output_dir, 'pred_answers.txt'), 'w') as f:
+        for a in pred_answers:
+            f.write('{}\n'.format(a))
+    return correct / count
+
+def string_matching_evaluate(outputs, targets):
+    return np.mean([1 if p.strip() == g.strip() else 0 for p, g in zip(outputs, targets)])
+
+def translate(args, outputs):
+    if args.ir_mode == 'UIR':
+        from parser.ir.translator import Translator    
+        translator = Translator()
+        if args.self_correct:
+            from IR_unified.corrector import Corrector
+            corrector = Corrector()
+        translated_outputs = []
+        for output in outputs:
+            try:
+                output = corrector.correct(output) if args.self_correct else output
+                output = translator.to_sparql(output).replace('  ?', ' ?')
+                translated_outputs.append(output)
+            except Exception as e:
+                translated_outputs.append("")
+    elif args.ir_mode == 'CFQ_IR':
+        try:
+            with open(os.path.join(args.input_dir, 'parser.pkl'), 'rb') as f:
+                parser = pickle.load(f)
+        except:
+            raise Exception('Parser not found')
+        translated_outputs = [parser.f_reversible_inverse(sparql) for sparql in outputs]
+    else:
+        raise NotImplementedError("%s not supported" % args.ir_mode)
+
+    return translated_outputs
 
 def validate(args, kb, model, data, device, tokenizer):
     model.eval()
     model = model.module if hasattr(model, "module") else model
     
-    try:
-        with open(args.parser, 'rb') as f:
-            parser = pickle.load(f)
-        if args.local_rank in [-1, 0]:
-            logging.info("IR Parser Loaded")
-        ir_mode = args.ir_mode
-    except:
-        parser = None  
-        ir_mode = None
-    
     count, correct = 0, 0
     with torch.no_grad():
         all_outputs = []
+        all_targets = []
         all_answers = []
         for batch in tqdm(data, total=len(data)):
             source_ids, source_mask, choices, target_ids, answer = [x.to(device) for x in batch]
@@ -122,71 +145,23 @@ def validate(args, kb, model, data, device, tokenizer):
                 input_ids=source_ids,
                 max_length = 500,
             )
-
             all_outputs.extend(outputs.cpu().numpy())
+            all_targets.extend(target_ids.cpu().numpy())
             all_answers.extend(answer.cpu().numpy())
             
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in all_outputs]
-        pred_sparql = [post_process(output) for output in outputs]
-            
-        if ir_mode == 'rir':
-            pred_sparql = [parser.f_reversible_inverse(sparql) for sparql in pred_sparql]
-            
+        targets = [tokenizer.decode(target_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for target_id in all_targets]
+        if ( not args.ir_mode ) or args.ir_mode == 'CFQ_IR':
+            outputs = [post_process(output) for output in outputs]
+        if args.ir_mode:
+            with open(os.path.join(args.output_dir, 'pred_ir.txt'), 'w') as f:
+                for output in outputs:
+                    f.write('{}\n'.format(output))
+            outputs = translate(args, outputs)    
         given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
         
-        with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
-            for a, s in tqdm(zip(given_answer, pred_sparql)):
-                pred_answer = get_sparql_answer(s, kb)
-                
-                if pred_answer == None:
-                    pred_answer = 'no'
-                is_match = whether_equal(a, pred_answer)
-                if is_match:
-                    correct += 1
-
-                f.write(pred_answer + '\n')
-                count += 1
-
-    acc = correct / count
+    acc = evaluate(args, given_answer, outputs, kb) 
+    # acc = string_matching_evaluate(outputs, targets)
     logging.info('acc: {}'.format(acc))
-    return acc, pred_sparql
-
-def predict(args, kb, model, data, device, tokenizer):
-    model.eval()
-    model = model.module if hasattr(model, "module") else model
     
-    if args.parser and args.ir_mode:
-        with open(args.parser, 'rb') as f:
-            parser = pickle.load(f)
-        if args.local_rank in [-1, 0]:
-            logging.info("IR Parser Loaded")
-    else:
-        parser = None  
-        ir_mode = None
-
-    with torch.no_grad():
-        all_outputs = []
-        for batch in tqdm(data, total=len(data)):
-            batch = batch[:3]
-            source_ids, source_mask, choices = [x.to(device) for x in batch]
-            outputs = model.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            )
-
-            all_outputs.extend(outputs.cpu().numpy())
-            
-        outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in all_outputs]
-        pred_sparql = [post_process(output) for output in outputs]
-        
-        if ir_mode == 'rir':
-            pred_sparql = [parser.f_reversible_inverse(sparql) for sparql in pred_sparql]
-
-        with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
-            for sparql in tqdm(pred_sparql):
-                pred_answer = get_sparql_answer(sparql, kb)
-
-                if pred_answer == None:
-                    pred_answer = 'None'
-                f.write(pred_answer + '\n')
-
+    return acc, outputs

@@ -269,21 +269,21 @@ class UnifiedIRParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by UnifiedIRParser#equal.
-    def enterEqual(self, ctx:UnifiedIRParser.EqualContext):
-        pass
-
-    # Exit a parse tree produced by UnifiedIRParser#equal.
-    def exitEqual(self, ctx:UnifiedIRParser.EqualContext):
-        pass
-
-
     # Enter a parse tree produced by UnifiedIRParser#notEqual.
     def enterNotEqual(self, ctx:UnifiedIRParser.NotEqualContext):
         pass
 
     # Exit a parse tree produced by UnifiedIRParser#notEqual.
     def exitNotEqual(self, ctx:UnifiedIRParser.NotEqualContext):
+        pass
+
+
+    # Enter a parse tree produced by UnifiedIRParser#equal.
+    def enterEqual(self, ctx:UnifiedIRParser.EqualContext):
+        pass
+
+    # Exit a parse tree produced by UnifiedIRParser#equal.
+    def exitEqual(self, ctx:UnifiedIRParser.EqualContext):
         pass
 
 

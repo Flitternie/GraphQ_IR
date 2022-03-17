@@ -32,7 +32,7 @@ def get_program_seq(program):
     seq = '<b>'.join(seq)
     return seq
 
-class ParsingProgram():
+class Parser():
     def __init__(self):
         self.walker = ParseTreeWalker() 
         self.errors = []

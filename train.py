@@ -38,8 +38,8 @@ def train(args):
         from bart2query.overnight.predict import validate
     elif args.mode == 'cypher':
         from bart2query.cypher.predict import validate
-    elif args.mode == 'ir':
-        from bart2ir.predict import validate
+    elif args.ir_mode == 'TIR':
+        from bart2query.ir.predict import validate
     else:
         raise ValueError('mode {} not supported'.format(args.mode))
 
@@ -64,7 +64,7 @@ def train(args):
         logging.info("Create model.........")
     config_class, model_class, tokenizer_class = (BartConfig, BartForConditionalGeneration, BartTokenizer)
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
-    model = model_class.from_pretrained(args.model_name_or_path)
+    model = model_class.from_pretrained(args.ckpt) if args.ckpt else model_class.from_pretrained(args.model_name_or_path) 
     model.resize_token_embeddings(len(tokenizer))
     
     if args.n_gpus > 1:
@@ -103,17 +103,11 @@ def train(args):
 
     global_step = 0
     steps_trained_in_current_epoch = 0
-    # Check if continuing training from a checkpoint
-    if os.path.exists(args.model_name_or_path) and "checkpoint" in args.model_name_or_path:
-        # set global_step to gobal_step of last saved checkpoint from model path
-        # global_step = int(args.model_name_or_path.split("-")[-1].split("/")[0])
-        # epochs_trained = global_step // (len(train_loader) // args.gradient_accumulation_steps)
-        # steps_trained_in_current_epoch = global_step % (len(train_loader) // args.gradient_accumulation_steps)
-        logging.info("  Continuing training from checkpoint, will skip to saved global_step")
-        # logging.info("  Continuing training from epoch %d", epochs_trained)
-        # logging.info("  Continuing training from global step %d", global_step)
-        # logging.info("  Will skip the first %d steps in the first epoch", steps_trained_in_current_epoch)
     
+    # Check if continuing training from a checkpoint
+    if args.ckpt and args.local_rank in [-1, 0]:
+        logging.info("Continuing training from checkpoint, will skip to saved global_step")
+        
     if args.local_rank in [-1, 0]:
         logging.info('Checking...')
         logging.info("===================Dev==================")
@@ -124,8 +118,8 @@ def train(args):
     if args.local_rank in [-1, 0]:
         print("Current performance on validation set: %f" % (current_acc))
     
-    args.logging_steps = round(len(train_loader.dataset)/args.batch_size) // 2
-    args.save_steps = args.logging_steps
+    logging_steps = round(len(train_loader.dataset)/args.batch_size) // args.logging_per_epoch
+    save_steps = logging_steps
     epochs_not_improving = 0
     
     for epoch_i in range(int(args.num_train_epochs)):
@@ -170,12 +164,12 @@ def train(args):
                 model.zero_grad()
                 global_step += 1
 
-            if args.logging_steps > 0 and global_step % args.logging_steps == 0 and args.local_rank in [-1, 0]:
+            if logging_steps > 0 and global_step % logging_steps == 0 and args.local_rank in [-1, 0]:
                 logging.info("===================Dev==================")
                 current_acc, _ = validate(args, kb, model, val_loader, device, tokenizer)
                 print("Current best performance on validation set: %f" % (best_acc))
             
-            if args.save_steps > 0 and global_step % args.save_steps == 0 and current_acc > best_acc and args.local_rank in [-1, 0]:
+            if save_steps > 0 and global_step % save_steps == 0 and current_acc > best_acc and args.local_rank in [-1, 0]:
                 epochs_not_improving = 0
                 best_acc = current_acc
                 print("Best performance on validation set updated: %f" % (best_acc))
@@ -213,10 +207,8 @@ def main():
     # input and output
     parser.add_argument('--input_dir', required=True)
     parser.add_argument('--output_dir', required=True)
-
-    parser.add_argument('--save_dir', required=True, help='path to save checkpoints and logs')
     parser.add_argument('--model_name_or_path', required=True, help='pretrained language models')
-    parser.add_argument('--ckpt')
+    parser.add_argument('--ckpt', default=None)
 
     # training parameters
     parser.add_argument('--weight_decay', default=1e-5, type=float)
@@ -224,8 +216,7 @@ def main():
     parser.add_argument('--seed', type=int, default=666, help='random seed')
     parser.add_argument('--learning_rate', default=3e-5, type=float)
     parser.add_argument('--num_train_epochs', default=25, type=int)
-    parser.add_argument('--save_steps', default=448, type=int)
-    parser.add_argument('--logging_steps', default=448, type=int)
+    parser.add_argument('--logging_per_epoch', default=2, type=int)
     parser.add_argument('--early_stopping', default=5, type=int)
     parser.add_argument('--warmup_proportion', default=0.1, type=float,
                         help="Proportion of training to perform linear learning rate warmup for,E.g., 0.1=10% of training.")
@@ -241,9 +232,9 @@ def main():
                     help='node rank for distributed training')
     parser.add_argument('--port', default=12355, type=int)
 
-    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'ir', 'overnight', 'cypher'])
-    parser.add_argument('--parser', default=None, type=str)
-    parser.add_argument('--ir_mode', default=None, choices=['rir', 'lir'])
+    parser.add_argument('--mode', required=True, choices=['sparql', 'program', 'overnight', 'cypher'])
+    parser.add_argument('--ir_mode', default=None, choices=['TIR', 'UIR', 'CFQ_IR'])
+    parser.add_argument('--self_correct', action='store_true')
     
     # validating parameters
     # parser.add_argument('--num_return_sequences', default=1, type=int)
@@ -254,10 +245,10 @@ def main():
     parser.add_argument('--alpha', default = 1e-4, type = float)
     args = parser.parse_args()
 
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir, exist_ok=True)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir, exist_ok=True)
     time_ = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
-    fileHandler = logging.FileHandler(os.path.join(args.save_dir, '{}.log'.format(time_)))
+    fileHandler = logging.FileHandler(os.path.join(args.output_dir, '{}.log'.format(time_)))
     fileHandler.setFormatter(logFormatter)
     rootLogger.addHandler(fileHandler)
     # args display

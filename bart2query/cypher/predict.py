@@ -1,39 +1,72 @@
 import os
+import random
 import torch
 import numpy as np
 from tqdm import tqdm
 from utils.data import DataLoader
 from transformers import BartConfig, BartForConditionalGeneration, BartTokenizer
 import logging
+from neo4j import GraphDatabase, basic_auth
 
-from nltk.translate.bleu_score import sentence_bleu
+from data.overnight.domain.domain_base import Domain
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
 import warnings
-warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql query
+warnings.simplefilter("ignore") 
 
 
-def cal_performance(pred, gold, tokenizer):
-    batch_bleu = 0.0
-    batch_correct = 0
-    for x, y in zip(pred, gold):
-        y = tokenizer.decode(y, skip_special_tokens = True, clean_up_tokenization_spaces = True)
-        x = tokenizer.decode(x, skip_special_tokens = True, clean_up_tokenization_spaces = True)
-        batch_bleu += sentence_bleu([y], x)
-        batch_correct += x==y
-    return batch_bleu, batch_correct
+def evaluate(outputs, targets, given_answer):
+    assert len(outputs) == len(targets)
+    # scores = []
+    # driver = GraphDatabase.driver(
+    #         "bolt://34.205.75.182:7687",
+    #         auth=basic_auth("neo4j", "computer-tractor-distortions"))
+
+    # for output, target, answer in tqdm(zip(outputs, targets, given_answer)):
+    #     if output == target:
+    #         scores.append(1)
+    #     else:
+    #         try:   
+    #             with driver.session(database="neo4j") as session:
+    #                 results = session.read_transaction(lambda tx: tx.run(output).data())
+    #                 results = [record.values() for record in results]
+    #         except:
+    #             results = []    
+    #         if ";".join(results) == answer:
+    #             scores.append(1)
+    #         else:
+    #             scores.append(0)
+
+    return np.mean([1 if p.strip().lower() == g.strip().lower() else 0 for p, g in zip(outputs, targets)]), np.mean([1 if p.strip() == g.strip() else 0 for p, g in zip(outputs, targets)])
+
+
+def translate(args, outputs, targets):
+    if args.ir_mode == 'UIR':
+        translated_outputs = []
+        translated_targets = []
+        from parser.ir.translator import Translator
+        translator = Translator()
+        for output, target in zip(outputs, targets):
+            try:
+                translated_outputs.append(translator.to_cypher(output))
+            except:
+                translated_outputs.append("")
+            translated_targets.append(translator.to_cypher(target))
+    else:
+        raise NotImplementedError("%s not supported" % args.ir_mode)
+    return translated_outputs, translated_targets
 
 
 def validate(args, kb, model, data, device, tokenizer):
     model.eval()
     all_outputs = []
     all_targets = []
-    
+    all_answers = []
     with torch.no_grad():
         for batch in tqdm(data, total=len(data)):
-            source_ids, source_mask, _, target_ids, _ = [x.to(device) for x in batch]
+            source_ids, source_mask, _, target_ids, answers = [x.to(device) for x in batch]
             outputs = model.module.generate(
                 input_ids=source_ids,
                 max_length = 500,
@@ -44,63 +77,21 @@ def validate(args, kb, model, data, device, tokenizer):
 
             all_outputs.extend(outputs.cpu().numpy())
             all_targets.extend(target_ids.cpu().numpy())
+            all_answers.extend(answers.cpu().numpy())
             
         assert len(all_outputs) == len(all_targets) 
-        all_bleu, all_correct = cal_performance(all_outputs, all_targets, tokenizer)
-        acc = all_correct/len(all_outputs)
-        avg_bleu = all_bleu/len(all_outputs)
-        logging.info('accuracy: {}, bleu: {}'.format(acc, avg_bleu))
-
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for output_id in all_outputs]
-        
-    return acc, outputs
+        targets = [tokenizer.decode(target_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for target_id in all_targets]
+        # given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
+        given_answer = None
 
+    if args.ir_mode:
+        outputs, targets = translate(args, outputs, targets)
+    lf_matching, str_matching = evaluate(outputs, targets, given_answer)
+    logging.info('Execution accuracy: {}, String matching accuracy: {}'.format(lf_matching, str_matching))
 
-def predict(args, kb, model, data, device, tokenizer):
-    all_outputs = []
-    all_targets = []
-    
-    with torch.no_grad():
-        for batch in tqdm(data, total=len(data)):
-            source_ids, source_mask, _, target_ids, _ = [x.to(device) for x in batch]
-            outputs = model.module.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            ) if hasattr(model, "module") else model.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            ) 
+    with open("out.txt", "w") as f:
+        for output, target in zip(outputs, targets):
+            f.write("{}\t{}\n".format(output, target))
 
-            all_outputs.extend(outputs.cpu().numpy())
-            all_targets.extend(target_ids.cpu().numpy())
-            
-        assert len(all_outputs) == len(all_targets) 
-        all_bleu, all_correct = cal_performance(all_outputs, all_targets, tokenizer)
-        acc = all_correct/len(all_outputs)
-        avg_bleu = all_bleu/len(all_outputs)
-        logging.info('accuracy: {}, bleu: {}'.format(acc, avg_bleu))
-
-        outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for output_id in all_outputs]
-        
-    with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
-        for output in tqdm(outputs):
-            f.write(output + '\n')
-    
-def prepare(dataset, args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    print("Preparing %s data........." % dataset)
-    vocab_json = os.path.join(args.input_dir, 'vocab.json')
-    val_pt = os.path.join(args.input_dir, '%s.pt' % dataset)
-    val_loader = DataLoader(vocab_json, val_pt, args.batch_size)
-    
-    config_class, model_class, tokenizer_class = (BartConfig, BartForConditionalGeneration, BartTokenizer)
-    tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
-    model = model_class.from_pretrained(args.ckpt)
-    model.resize_token_embeddings(len(tokenizer))
-    model = model.to(device)
-    
-    _, outputs = validate(args, None, model, val_loader, device, tokenizer)
-
-    return outputs
-
+    return lf_matching, outputs

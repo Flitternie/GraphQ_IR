@@ -51,18 +51,40 @@ def sequence_to_program(input):
         inputs_list.append(inputs)
     return func_list, inputs_list
 
+def evaluate(args, given_answer, outputs):
+    from .executor_rule_new import RuleExecutor 
+    executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
+    count, correct = 0, 0
+
+    for a, output in tqdm(zip(given_answer, outputs)):
+        func_list, inputs_list = sequence_to_program(output)
+        ans = executor.forward(func_list, inputs_list, ignore_error = True)
+        if ans == None:
+            ans = 'no'
+        if ans == a:
+            correct += 1
+        count += 1
+    acc = correct / count
+    return acc
+
+def translate(args, outputs):
+    if args.mode == 'UIR':
+        from parser.ir.translator import Translator
+        translator = Translator()
+        translated_outputs = []
+        for output in outputs:
+            try:
+                translated_outputs.append(translator.to_program(output))
+            except:
+                translated_outputs.append("")
+    else:
+        raise NotImplementedError("%s not supported" % args.ir_mode)
+
+    return translated_outputs
+
 def validate(args, kb, model, data, device, tokenizer):
     model.eval()
-    model = model.module if hasattr(model, "module") else model
-
-    if "new" in args.input_dir:
-        from .executor_rule_new import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
-    else:
-        from .executor_rule import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_full/", 'kb.json'))
-
-    count, correct = 0, 0
+    model = model.module if hasattr(model, "module") else model    
     
     with torch.no_grad():
         all_outputs = []
@@ -79,48 +101,10 @@ def validate(args, kb, model, data, device, tokenizer):
         
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in all_outputs]
         given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
-        
-        for a, output in tqdm(zip(given_answer, outputs)):
-            func_list, inputs_list = sequence_to_program(output)
-            ans = executor.forward(func_list, inputs_list, ignore_error = True)
-            if ans == None:
-                ans = 'no'
-            if ans == a:
-                correct += 1
-            count += 1
-        
-        acc = correct / count
-        logging.info('acc: {}'.format(acc))
-        return acc, outputs
-
-def predict(args, kb, model, data, device, tokenizer):
-    model.eval()
-    model = model.module if hasattr(model, "module") else model
-
-    if "new" in args.input_dir:
-        from .executor_rule_new import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
-    else:
-        from .executor_rule import RuleExecutor 
-        executor = RuleExecutor(os.path.join("./data/kqapro/dataset_full/", 'kb.json'))
-
-    with torch.no_grad():
-        all_outputs = []
-        for batch in tqdm(data, total=len(data)):
-            batch = batch[:3]
-            source_ids, source_mask, choices = [x.to(device) for x in batch]
-            outputs = model.generate(
-                input_ids=source_ids,
-                max_length = 500,
-            )
-
-            all_outputs.extend(outputs.cpu().numpy())
-
-        outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = True) for output_id in all_outputs]
-        with open(os.path.join(args.save_dir, 'predict.txt'), 'w') as f:
-            for output in tqdm(outputs):
-                func_list, inputs_list = sequence_to_program(output)
-                ans = executor.forward(func_list, inputs_list, ignore_error = True)
-                if ans == None:
-                    ans = 'no'
-                f.write(ans + '\n')
+    
+    if args.ir_mode:
+        otuputs = translate(args, outputs)
+    acc = evaluate(args, given_answer, outputs)
+    logging.info('acc: {}'.format(acc))
+    
+    return acc, outputs

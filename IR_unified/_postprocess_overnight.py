@@ -9,7 +9,7 @@ from utils import *
 from transformers import *
 
 from parser.overnight import OvernightIRTranslator 
-from bart2ir.predict import prepare
+from bart2query.ir.predict import prepare
 
 from utils.misc import init_vocab
 from transformers import *

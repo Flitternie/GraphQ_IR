@@ -48,7 +48,7 @@ Return
     ;
 
 string
-    : ( STRING_LITERAL | INTEGER | '.' | ',' | '-' | '_' )+
+    : ( STRING_LITERAL | INTEGER | '.' | ',' | '-' | '_' | ' ' )+
     ;
 
 INTEGER

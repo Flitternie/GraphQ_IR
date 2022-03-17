@@ -8,7 +8,7 @@ from tqdm import tqdm
 import random
 
 from transformers import *
-from utils.data import load_kqapro, load_overnight, overnight_domains
+from utils.data import load_kqapro, load_overnight, overnight_domains, load_metaqa, load_mixed
 
 def encode_dataset(mode, dataset, vocab, tokenizer):
     questions = []
@@ -18,16 +18,20 @@ def encode_dataset(mode, dataset, vocab, tokenizer):
 
     if mode == 'program' or mode == 'sparql':
         from parser.program.translator import Translator    
+        translator = Translator()
     elif mode == 'overnight':
         from parser.overnight.translator import Translator
-    translator = Translator()
+        translator = Translator()
     
     for item in tqdm(dataset):
         question = item['rewrite'] if 'rewrite' in item.keys() else item['question']
         questions.append(question)
         
-        logical_form = item['program'] if 'program' in item.keys() else item['LF']
-        irs.append(translator.to_ir(logical_form))
+        if mode == 'cypher' or mode == 'mixed':
+            irs.append(item['ir'])
+        else:
+            logical_form = item['program'] if 'program' in item.keys() else item['LF']
+            irs.append(translator.to_ir(logical_form))
 
         if mode == 'program' or mode == 'sparql':
             _ = [vocab['answer_token_to_idx'][w] for w in item['choices']]
@@ -35,6 +39,8 @@ def encode_dataset(mode, dataset, vocab, tokenizer):
             answers.append(vocab['answer_token_to_idx'].get(item['answer']))
         elif mode == 'overnight':
             answers.append(item['domain'])
+        # elif mode == 'cypher':
+        #     answers.append(vocab['answer_token_to_idx'].get(";".join(item['answer'])))
 
     sequences = questions + irs
     encoded_inputs = tokenizer(sequences, padding = True)
@@ -50,7 +56,7 @@ def encode_dataset(mode, dataset, vocab, tokenizer):
     target_ids = np.array(target_ids['input_ids'], dtype = np.int32)
     
     choices = np.array(choices, dtype = np.int32) if choices else np.array([0]*len(questions), dtype = np.int32)
-    answers = np.array(answers, dtype = np.int32)
+    answers = np.array(answers) if answers else np.array([0]*len(questions), dtype = np.int32)
 
     return source_ids, source_mask, target_ids, choices, answers
 
@@ -61,10 +67,10 @@ def main():
     parser.add_argument('--output_dir', required=True)
     parser.add_argument('--model_name_or_path', required=True)    
 
-    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'overnight'])
+    parser.add_argument('--mode', required=True, choices=['program', 'sparql', 'overnight', 'cypher', 'mixed'])
     parser.add_argument('--domain', choices=overnight_domains, default='all')
     parser.add_argument('--cross_domain', action='store_true')
-
+    parser.add_argument('--low_resource', default=100, type=int)
 
     args = parser.parse_args() 
 
@@ -75,6 +81,11 @@ def main():
         train_set, val_set, test_set, vocab = load_kqapro(args)
     elif args.mode == 'overnight':
         train_set, val_set, test_set, vocab = load_overnight(args)
+    elif args.mode == 'cypher':
+        train_set, val_set, test_set, vocab = load_metaqa(args)
+    elif args.mode == 'mixed':
+        train_set, val_set, vocab = load_mixed(args)
+
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir, exist_ok=True)
@@ -87,7 +98,12 @@ def main():
         
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
     
-    for name, dataset in zip(('train', 'val', 'test'), (train_set, val_set, test_set)):
+    if args.mode == 'mixed':
+        name_list, data_list = ('train', 'val'), (train_set, val_set)
+    else:
+        name_list, data_list = ('train', 'val', 'test'), (train_set, val_set, test_set)
+
+    for name, dataset in zip(name_list, data_list):
         print('Encode {} set'.format(name))
         outputs = encode_dataset(args.mode, dataset, vocab, tokenizer)
         assert len(outputs) == 5

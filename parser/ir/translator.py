@@ -7,6 +7,11 @@ from .UnifiedIRParserListener import UnifiedIRParserListener
 from .SparqlEmitter import SparqlEmitter
 from .OvernightEmitter import OvernightEmitter, overnight_domains
 
+def post_process_ir(ir):
+    for token in ["<E>","</E>","<ES>","</ES>","<A>","</A>","<R>","</R>","<V>","</V>","<Q>","</Q>","<C>","</C>"]:
+        ir = ir.replace(" {}".format(token), token)
+        ir = ir.replace("{} ".format(token), token)
+    return ir
 
 class Translator():
     def __init__(self):
@@ -23,22 +28,28 @@ class Translator():
         lexer = UnifiedIRLexer(input_stream)       
         token_stream = CommonTokenStream(lexer)
         parser = UnifiedIRParser(token_stream)
-
         return parser.root()
 
     def to_sparql(self, ir):
+        ir = post_process_ir(ir)
         tree = self.parse(ir)
         self.walker.walk(self.sparql_emitter, tree)
         logical_form = self.sparql_emitter.get_logical_form(tree)
-        
         return logical_form
+    
+    def to_kopl(self, ir):
+        ir = post_process_ir(ir)
+        raise NotImplementedError()
     
     def to_overnight(self, ir):
         tree = self.parse(ir)
         self.walker.walk(self.overnight_emitter, tree)
         logical_form = self.overnight_emitter.get_logical_form(tree)
-        
         return logical_form
+    
+    def to_cypher(self, ir):
+        raise NotImplementedError()
+
 
 if __name__ == '__main__':
     translator = Translator()

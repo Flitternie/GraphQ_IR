@@ -12,7 +12,7 @@ from antlr4.InputStream import InputStream
 from .overnight.OvernightLexer import OvernightLexer
 from .overnight.OvernightParser import OvernightParser
 
-class ParsingOvernight():
+class Parser():
     def __init__(self):
         self.walker = ParseTreeWalker() 
         self.errors = []

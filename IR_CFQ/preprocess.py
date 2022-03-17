@@ -94,13 +94,10 @@ def main():
     tokenizer = BartTokenizer.from_pretrained(args.model_name_or_path)
     
     for name, dataset in zip(('train', 'val', 'test_ans'), (train_set, val_set, test_set)):
-        # print('Encode {} set'.format(name))
         outputs = encode_dataset(dataset, parser, vocab, tokenizer, args.ir_mode, name=='test')
         assert len(outputs) == 5
-        # print('shape of input_ids of questions, attention_mask of questions, input_ids of sparqls, choices and answers:')
         with open(os.path.join(args.output_dir, '{}.pt'.format(name)), 'wb') as f:
             for o in outputs:
-                # print(o.shape)
                 pickle.dump(o, f)
 if __name__ == '__main__':
     main()

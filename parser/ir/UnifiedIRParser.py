@@ -12,7 +12,7 @@ else:
 def serializedATN():
     with StringIO() as buf:
         buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3;")
-        buf.write("\u0154\4\2\t\2\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7")
+        buf.write("\u0155\4\2\t\2\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7")
         buf.write("\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t\13\4\f\t\f\4\r\t\r\4\16")
         buf.write("\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22\t\22\4\23\t\23")
         buf.write("\4\24\t\24\4\25\t\25\4\26\t\26\4\27\t\27\4\30\t\30\4\31")
@@ -36,24 +36,24 @@ def serializedATN():
         buf.write("\n\20\3\20\5\20\u00ea\n\20\3\20\3\20\5\20\u00ee\n\20\3")
         buf.write("\20\3\20\3\20\5\20\u00f3\n\20\3\21\3\21\3\21\3\21\3\21")
         buf.write("\3\21\3\22\3\22\5\22\u00fd\n\22\3\23\3\23\5\23\u0101\n")
-        buf.write("\23\3\24\3\24\3\25\3\25\3\25\3\25\3\25\3\25\5\25\u010b")
-        buf.write("\n\25\3\26\3\26\5\26\u010f\n\26\3\27\3\27\5\27\u0113\n")
-        buf.write("\27\3\30\3\30\3\30\3\30\3\30\3\30\3\30\3\30\3\30\3\30")
-        buf.write("\3\30\3\30\3\30\3\30\5\30\u0123\n\30\3\30\5\30\u0126\n")
-        buf.write("\30\3\31\3\31\3\31\3\31\3\31\5\31\u012d\n\31\3\32\3\32")
+        buf.write("\23\3\24\3\24\3\25\3\25\3\25\3\25\3\25\3\25\3\25\5\25")
+        buf.write("\u010c\n\25\3\26\3\26\5\26\u0110\n\26\3\27\3\27\5\27\u0114")
+        buf.write("\n\27\3\30\3\30\3\30\3\30\3\30\3\30\3\30\3\30\3\30\3\30")
+        buf.write("\3\30\3\30\3\30\3\30\5\30\u0124\n\30\3\30\5\30\u0127\n")
+        buf.write("\30\3\31\3\31\3\31\3\31\3\31\5\31\u012e\n\31\3\32\3\32")
         buf.write("\3\32\3\32\3\33\3\33\3\33\3\33\3\34\3\34\3\34\3\34\3\35")
         buf.write("\3\35\3\35\3\35\3\36\3\36\3\36\3\36\3\37\3\37\3\37\3\37")
-        buf.write("\3 \3 \3!\3!\3!\3!\3!\3!\3!\6!\u0150\n!\r!\16!\u0151\3")
+        buf.write("\3 \3 \3!\3!\3!\3!\3!\3!\3!\6!\u0151\n!\r!\16!\u0152\3")
         buf.write("!\2\2\"\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36 \"$&(*")
-        buf.write(",.\60\62\64\668:<>@\2\2\2\u0171\2J\3\2\2\2\4N\3\2\2\2")
+        buf.write(",.\60\62\64\668:<>@\2\2\2\u0173\2J\3\2\2\2\4N\3\2\2\2")
         buf.write("\6Q\3\2\2\2\bV\3\2\2\2\n\\\3\2\2\2\fa\3\2\2\2\16d\3\2")
         buf.write("\2\2\20g\3\2\2\2\22l\3\2\2\2\24z\3\2\2\2\26\u008f\3\2")
         buf.write("\2\2\30\u00b5\3\2\2\2\32\u00b9\3\2\2\2\34\u00c3\3\2\2")
         buf.write("\2\36\u00f2\3\2\2\2 \u00f4\3\2\2\2\"\u00fc\3\2\2\2$\u0100")
-        buf.write("\3\2\2\2&\u0102\3\2\2\2(\u010a\3\2\2\2*\u010e\3\2\2\2")
-        buf.write(",\u0112\3\2\2\2.\u0125\3\2\2\2\60\u012c\3\2\2\2\62\u012e")
-        buf.write("\3\2\2\2\64\u0132\3\2\2\2\66\u0136\3\2\2\28\u013a\3\2")
-        buf.write("\2\2:\u013e\3\2\2\2<\u0142\3\2\2\2>\u0146\3\2\2\2@\u014f")
+        buf.write("\3\2\2\2&\u0102\3\2\2\2(\u010b\3\2\2\2*\u010f\3\2\2\2")
+        buf.write(",\u0113\3\2\2\2.\u0126\3\2\2\2\60\u012d\3\2\2\2\62\u012f")
+        buf.write("\3\2\2\2\64\u0133\3\2\2\2\66\u0137\3\2\2\28\u013b\3\2")
+        buf.write("\2\2:\u013f\3\2\2\2<\u0143\3\2\2\2>\u0147\3\2\2\2@\u0150")
         buf.write("\3\2\2\2BK\5\4\3\2CK\5\6\4\2DK\5\b\5\2EK\5\n\6\2FK\5\f")
         buf.write("\7\2GK\5\16\b\2HK\5\20\t\2IK\5\22\n\2JB\3\2\2\2JC\3\2")
         buf.write("\2\2JD\3\2\2\2JE\3\2\2\2JF\3\2\2\2JG\3\2\2\2JH\3\2\2\2")
@@ -129,45 +129,46 @@ def serializedATN():
         buf.write("\2\u00fc\u00fb\3\2\2\2\u00fd#\3\2\2\2\u00fe\u0101\7\27")
         buf.write("\2\2\u00ff\u0101\7\30\2\2\u0100\u00fe\3\2\2\2\u0100\u00ff")
         buf.write("\3\2\2\2\u0101%\3\2\2\2\u0102\u0103\7\22\2\2\u0103\'\3")
-        buf.write("\2\2\2\u0104\u010b\7\33\2\2\u0105\u010b\7\34\2\2\u0106")
-        buf.write("\u010b\7\35\2\2\u0107\u010b\7\36\2\2\u0108\u010b\7\37")
-        buf.write("\2\2\u0109\u010b\7 \2\2\u010a\u0104\3\2\2\2\u010a\u0105")
-        buf.write("\3\2\2\2\u010a\u0106\3\2\2\2\u010a\u0107\3\2\2\2\u010a")
-        buf.write("\u0108\3\2\2\2\u010a\u0109\3\2\2\2\u010b)\3\2\2\2\u010c")
-        buf.write("\u010f\7!\2\2\u010d\u010f\7\"\2\2\u010e\u010c\3\2\2\2")
-        buf.write("\u010e\u010d\3\2\2\2\u010f+\3\2\2\2\u0110\u0113\7\31\2")
-        buf.write("\2\u0111\u0113\7\32\2\2\u0112\u0110\3\2\2\2\u0112\u0111")
-        buf.write("\3\2\2\2\u0113-\3\2\2\2\u0114\u0115\5\60\31\2\u0115\u0116")
-        buf.write("\5.\30\2\u0116\u0117\7\30\2\2\u0117\u0118\5.\30\2\u0118")
-        buf.write("\u0126\3\2\2\2\u0119\u011a\5,\27\2\u011a\u011b\7\b\2\2")
-        buf.write("\u011b\u011c\5.\30\2\u011c\u0126\3\2\2\2\u011d\u011e\5")
-        buf.write("\64\33\2\u011e\u011f\7\b\2\2\u011f\u0120\5\26\f\2\u0120")
-        buf.write("\u0126\3\2\2\2\u0121\u0123\5\60\31\2\u0122\u0121\3\2\2")
-        buf.write("\2\u0122\u0123\3\2\2\2\u0123\u0124\3\2\2\2\u0124\u0126")
-        buf.write("\5<\37\2\u0125\u0114\3\2\2\2\u0125\u0119\3\2\2\2\u0125")
-        buf.write("\u011d\3\2\2\2\u0125\u0122\3\2\2\2\u0126/\3\2\2\2\u0127")
-        buf.write("\u012d\7#\2\2\u0128\u012d\7$\2\2\u0129\u012d\7%\2\2\u012a")
-        buf.write("\u012d\7&\2\2\u012b\u012d\7\'\2\2\u012c\u0127\3\2\2\2")
-        buf.write("\u012c\u0128\3\2\2\2\u012c\u0129\3\2\2\2\u012c\u012a\3")
-        buf.write("\2\2\2\u012c\u012b\3\2\2\2\u012d\61\3\2\2\2\u012e\u012f")
-        buf.write("\7+\2\2\u012f\u0130\5@!\2\u0130\u0131\7\65\2\2\u0131\63")
-        buf.write("\3\2\2\2\u0132\u0133\7,\2\2\u0133\u0134\5@!\2\u0134\u0135")
-        buf.write("\7\66\2\2\u0135\65\3\2\2\2\u0136\u0137\7.\2\2\u0137\u0138")
-        buf.write("\5@!\2\u0138\u0139\78\2\2\u0139\67\3\2\2\2\u013a\u013b")
-        buf.write("\7-\2\2\u013b\u013c\5@!\2\u013c\u013d\7\67\2\2\u013d9")
-        buf.write("\3\2\2\2\u013e\u013f\7/\2\2\u013f\u0140\5@!\2\u0140\u0141")
-        buf.write("\79\2\2\u0141;\3\2\2\2\u0142\u0143\7\60\2\2\u0143\u0144")
-        buf.write("\5@!\2\u0144\u0145\7:\2\2\u0145=\3\2\2\2\u0146\u0147\7")
-        buf.write("\61\2\2\u0147?\3\2\2\2\u0148\u0150\7(\2\2\u0149\u0150")
-        buf.write("\7\64\2\2\u014a\u014b\7\23\2\2\u014b\u014c\5@!\2\u014c")
-        buf.write("\u014d\7\24\2\2\u014d\u0150\3\2\2\2\u014e\u0150\7;\2\2")
-        buf.write("\u014f\u0148\3\2\2\2\u014f\u0149\3\2\2\2\u014f\u014a\3")
-        buf.write("\2\2\2\u014f\u014e\3\2\2\2\u0150\u0151\3\2\2\2\u0151\u014f")
-        buf.write("\3\2\2\2\u0151\u0152\3\2\2\2\u0152A\3\2\2\2)Jrxz\u008f")
-        buf.write("\u0093\u0096\u0099\u009d\u00a1\u00a4\u00a7\u00ac\u00b0")
-        buf.write("\u00b5\u00b9\u00bd\u00c3\u00ca\u00cd\u00d1\u00d6\u00d9")
-        buf.write("\u00dd\u00e1\u00e6\u00e9\u00ed\u00f2\u00fc\u0100\u010a")
-        buf.write("\u010e\u0112\u0122\u0125\u012c\u014f\u0151")
+        buf.write("\2\2\2\u0104\u010c\7\34\2\2\u0105\u010c\7\22\2\2\u0106")
+        buf.write("\u010c\7\33\2\2\u0107\u010c\7\35\2\2\u0108\u010c\7\36")
+        buf.write("\2\2\u0109\u010c\7\37\2\2\u010a\u010c\7 \2\2\u010b\u0104")
+        buf.write("\3\2\2\2\u010b\u0105\3\2\2\2\u010b\u0106\3\2\2\2\u010b")
+        buf.write("\u0107\3\2\2\2\u010b\u0108\3\2\2\2\u010b\u0109\3\2\2\2")
+        buf.write("\u010b\u010a\3\2\2\2\u010c)\3\2\2\2\u010d\u0110\7!\2\2")
+        buf.write("\u010e\u0110\7\"\2\2\u010f\u010d\3\2\2\2\u010f\u010e\3")
+        buf.write("\2\2\2\u0110+\3\2\2\2\u0111\u0114\7\31\2\2\u0112\u0114")
+        buf.write("\7\32\2\2\u0113\u0111\3\2\2\2\u0113\u0112\3\2\2\2\u0114")
+        buf.write("-\3\2\2\2\u0115\u0116\5\60\31\2\u0116\u0117\5.\30\2\u0117")
+        buf.write("\u0118\7\30\2\2\u0118\u0119\5.\30\2\u0119\u0127\3\2\2")
+        buf.write("\2\u011a\u011b\5,\27\2\u011b\u011c\7\b\2\2\u011c\u011d")
+        buf.write("\5.\30\2\u011d\u0127\3\2\2\2\u011e\u011f\5\64\33\2\u011f")
+        buf.write("\u0120\7\b\2\2\u0120\u0121\5\26\f\2\u0121\u0127\3\2\2")
+        buf.write("\2\u0122\u0124\5\60\31\2\u0123\u0122\3\2\2\2\u0123\u0124")
+        buf.write("\3\2\2\2\u0124\u0125\3\2\2\2\u0125\u0127\5<\37\2\u0126")
+        buf.write("\u0115\3\2\2\2\u0126\u011a\3\2\2\2\u0126\u011e\3\2\2\2")
+        buf.write("\u0126\u0123\3\2\2\2\u0127/\3\2\2\2\u0128\u012e\7#\2\2")
+        buf.write("\u0129\u012e\7$\2\2\u012a\u012e\7%\2\2\u012b\u012e\7&")
+        buf.write("\2\2\u012c\u012e\7\'\2\2\u012d\u0128\3\2\2\2\u012d\u0129")
+        buf.write("\3\2\2\2\u012d\u012a\3\2\2\2\u012d\u012b\3\2\2\2\u012d")
+        buf.write("\u012c\3\2\2\2\u012e\61\3\2\2\2\u012f\u0130\7+\2\2\u0130")
+        buf.write("\u0131\5@!\2\u0131\u0132\7\65\2\2\u0132\63\3\2\2\2\u0133")
+        buf.write("\u0134\7,\2\2\u0134\u0135\5@!\2\u0135\u0136\7\66\2\2\u0136")
+        buf.write("\65\3\2\2\2\u0137\u0138\7.\2\2\u0138\u0139\5@!\2\u0139")
+        buf.write("\u013a\78\2\2\u013a\67\3\2\2\2\u013b\u013c\7-\2\2\u013c")
+        buf.write("\u013d\5@!\2\u013d\u013e\7\67\2\2\u013e9\3\2\2\2\u013f")
+        buf.write("\u0140\7/\2\2\u0140\u0141\5@!\2\u0141\u0142\79\2\2\u0142")
+        buf.write(";\3\2\2\2\u0143\u0144\7\60\2\2\u0144\u0145\5@!\2\u0145")
+        buf.write("\u0146\7:\2\2\u0146=\3\2\2\2\u0147\u0148\7\61\2\2\u0148")
+        buf.write("?\3\2\2\2\u0149\u0151\7(\2\2\u014a\u0151\7\64\2\2\u014b")
+        buf.write("\u014c\7\23\2\2\u014c\u014d\5@!\2\u014d\u014e\7\24\2\2")
+        buf.write("\u014e\u0151\3\2\2\2\u014f\u0151\7;\2\2\u0150\u0149\3")
+        buf.write("\2\2\2\u0150\u014a\3\2\2\2\u0150\u014b\3\2\2\2\u0150\u014f")
+        buf.write("\3\2\2\2\u0151\u0152\3\2\2\2\u0152\u0150\3\2\2\2\u0152")
+        buf.write("\u0153\3\2\2\2\u0153A\3\2\2\2)Jrxz\u008f\u0093\u0096\u0099")
+        buf.write("\u009d\u00a1\u00a4\u00a7\u00ac\u00b0\u00b5\u00b9\u00bd")
+        buf.write("\u00c3\u00ca\u00cd\u00d1\u00d6\u00d9\u00dd\u00e1\u00e6")
+        buf.write("\u00e9\u00ed\u00f2\u00fc\u0100\u010b\u010f\u0113\u0123")
+        buf.write("\u0126\u012d\u0150\u0152")
         return buf.getvalue()
 
 
@@ -1724,7 +1725,7 @@ class UnifiedIRParser ( Parser ):
                 self.state = 223
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << UnifiedIRParser.Is) | (1 << UnifiedIRParser.IsNot) | (1 << UnifiedIRParser.LargerThan) | (1 << UnifiedIRParser.SmallerThan) | (1 << UnifiedIRParser.AtLeast) | (1 << UnifiedIRParser.AtMost))) != 0):
+                if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << UnifiedIRParser.Not) | (1 << UnifiedIRParser.Is) | (1 << UnifiedIRParser.IsNot) | (1 << UnifiedIRParser.LargerThan) | (1 << UnifiedIRParser.SmallerThan) | (1 << UnifiedIRParser.AtLeast) | (1 << UnifiedIRParser.AtMost))) != 0):
                     self.state = 222
                     self.symbolOP()
 
@@ -2146,6 +2147,8 @@ class UnifiedIRParser ( Parser ):
 
         def IsNot(self):
             return self.getToken(UnifiedIRParser.IsNot, 0)
+        def Not(self):
+            return self.getToken(UnifiedIRParser.Not, 0)
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterNotEqual" ):
@@ -2198,43 +2201,49 @@ class UnifiedIRParser ( Parser ):
         localctx = UnifiedIRParser.SymbolOPContext(self, self._ctx, self.state)
         self.enterRule(localctx, 38, self.RULE_symbolOP)
         try:
-            self.state = 264
+            self.state = 265
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [UnifiedIRParser.Is]:
-                localctx = UnifiedIRParser.EqualContext(self, localctx)
+            if token in [UnifiedIRParser.IsNot]:
+                localctx = UnifiedIRParser.NotEqualContext(self, localctx)
                 self.enterOuterAlt(localctx, 1)
                 self.state = 258
-                self.match(UnifiedIRParser.Is)
+                self.match(UnifiedIRParser.IsNot)
                 pass
-            elif token in [UnifiedIRParser.IsNot]:
+            elif token in [UnifiedIRParser.Not]:
                 localctx = UnifiedIRParser.NotEqualContext(self, localctx)
                 self.enterOuterAlt(localctx, 2)
                 self.state = 259
-                self.match(UnifiedIRParser.IsNot)
+                self.match(UnifiedIRParser.Not)
+                pass
+            elif token in [UnifiedIRParser.Is]:
+                localctx = UnifiedIRParser.EqualContext(self, localctx)
+                self.enterOuterAlt(localctx, 3)
+                self.state = 260
+                self.match(UnifiedIRParser.Is)
                 pass
             elif token in [UnifiedIRParser.LargerThan]:
                 localctx = UnifiedIRParser.LargerContext(self, localctx)
-                self.enterOuterAlt(localctx, 3)
-                self.state = 260
+                self.enterOuterAlt(localctx, 4)
+                self.state = 261
                 self.match(UnifiedIRParser.LargerThan)
                 pass
             elif token in [UnifiedIRParser.SmallerThan]:
                 localctx = UnifiedIRParser.SmallerContext(self, localctx)
-                self.enterOuterAlt(localctx, 4)
-                self.state = 261
+                self.enterOuterAlt(localctx, 5)
+                self.state = 262
                 self.match(UnifiedIRParser.SmallerThan)
                 pass
             elif token in [UnifiedIRParser.AtLeast]:
                 localctx = UnifiedIRParser.LargerEqualContext(self, localctx)
-                self.enterOuterAlt(localctx, 5)
-                self.state = 262
+                self.enterOuterAlt(localctx, 6)
+                self.state = 263
                 self.match(UnifiedIRParser.AtLeast)
                 pass
             elif token in [UnifiedIRParser.AtMost]:
                 localctx = UnifiedIRParser.SmallerEqualContext(self, localctx)
-                self.enterOuterAlt(localctx, 6)
-                self.state = 263
+                self.enterOuterAlt(localctx, 7)
+                self.state = 264
                 self.match(UnifiedIRParser.AtMost)
                 pass
             else:
@@ -2308,19 +2317,19 @@ class UnifiedIRParser ( Parser ):
         localctx = UnifiedIRParser.StringOPContext(self, self._ctx, self.state)
         self.enterRule(localctx, 40, self.RULE_stringOP)
         try:
-            self.state = 268
+            self.state = 269
             self._errHandler.sync(self)
             token = self._input.LA(1)
             if token in [UnifiedIRParser.Largest]:
                 localctx = UnifiedIRParser.LargestContext(self, localctx)
                 self.enterOuterAlt(localctx, 1)
-                self.state = 266
+                self.state = 267
                 self.match(UnifiedIRParser.Largest)
                 pass
             elif token in [UnifiedIRParser.Smallest]:
                 localctx = UnifiedIRParser.SmallestContext(self, localctx)
                 self.enterOuterAlt(localctx, 2)
-                self.state = 267
+                self.state = 268
                 self.match(UnifiedIRParser.Smallest)
                 pass
             else:
@@ -2394,19 +2403,19 @@ class UnifiedIRParser ( Parser ):
         localctx = UnifiedIRParser.AggregateOPContext(self, self._ctx, self.state)
         self.enterRule(localctx, 42, self.RULE_aggregateOP)
         try:
-            self.state = 272
+            self.state = 273
             self._errHandler.sync(self)
             token = self._input.LA(1)
             if token in [UnifiedIRParser.Sum]:
                 localctx = UnifiedIRParser.SumContext(self, localctx)
                 self.enterOuterAlt(localctx, 1)
-                self.state = 270
+                self.state = 271
                 self.match(UnifiedIRParser.Sum)
                 pass
             elif token in [UnifiedIRParser.Average]:
                 localctx = UnifiedIRParser.AverageContext(self, localctx)
                 self.enterOuterAlt(localctx, 2)
-                self.state = 271
+                self.state = 272
                 self.match(UnifiedIRParser.Average)
                 pass
             else:
@@ -2542,56 +2551,56 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 44, self.RULE_valueSet)
         self._la = 0 # Token type
         try:
-            self.state = 291
+            self.state = 292
             self._errHandler.sync(self)
             la_ = self._interp.adaptivePredict(self._input,35,self._ctx)
             if la_ == 1:
                 localctx = UnifiedIRParser.ValueByUnionContext(self, localctx)
                 self.enterOuterAlt(localctx, 1)
-                self.state = 274
-                self.valueType()
                 self.state = 275
-                self.valueSet()
+                self.valueType()
                 self.state = 276
-                self.match(UnifiedIRParser.Or)
+                self.valueSet()
                 self.state = 277
+                self.match(UnifiedIRParser.Or)
+                self.state = 278
                 self.valueSet()
                 pass
 
             elif la_ == 2:
                 localctx = UnifiedIRParser.ValueByAggregateContext(self, localctx)
                 self.enterOuterAlt(localctx, 2)
-                self.state = 279
-                self.aggregateOP()
                 self.state = 280
-                self.match(UnifiedIRParser.Of)
+                self.aggregateOP()
                 self.state = 281
+                self.match(UnifiedIRParser.Of)
+                self.state = 282
                 self.valueSet()
                 pass
 
             elif la_ == 3:
                 localctx = UnifiedIRParser.ValueByAttributeContext(self, localctx)
                 self.enterOuterAlt(localctx, 3)
-                self.state = 283
-                self.attribute()
                 self.state = 284
-                self.match(UnifiedIRParser.Of)
+                self.attribute()
                 self.state = 285
+                self.match(UnifiedIRParser.Of)
+                self.state = 286
                 self.entitySet()
                 pass
 
             elif la_ == 4:
                 localctx = UnifiedIRParser.ValueAtomContext(self, localctx)
                 self.enterOuterAlt(localctx, 4)
-                self.state = 288
+                self.state = 289
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
                 if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << UnifiedIRParser.Text) | (1 << UnifiedIRParser.Quantity) | (1 << UnifiedIRParser.Date) | (1 << UnifiedIRParser.Year) | (1 << UnifiedIRParser.Time))) != 0):
-                    self.state = 287
+                    self.state = 288
                     self.valueType()
 
 
-                self.state = 290
+                self.state = 291
                 self.value()
                 pass
 
@@ -2718,37 +2727,37 @@ class UnifiedIRParser ( Parser ):
         localctx = UnifiedIRParser.ValueTypeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 46, self.RULE_valueType)
         try:
-            self.state = 298
+            self.state = 299
             self._errHandler.sync(self)
             token = self._input.LA(1)
             if token in [UnifiedIRParser.Text]:
                 localctx = UnifiedIRParser.TextContext(self, localctx)
                 self.enterOuterAlt(localctx, 1)
-                self.state = 293
+                self.state = 294
                 self.match(UnifiedIRParser.Text)
                 pass
             elif token in [UnifiedIRParser.Quantity]:
                 localctx = UnifiedIRParser.QuantityContext(self, localctx)
                 self.enterOuterAlt(localctx, 2)
-                self.state = 294
+                self.state = 295
                 self.match(UnifiedIRParser.Quantity)
                 pass
             elif token in [UnifiedIRParser.Date]:
                 localctx = UnifiedIRParser.DateContext(self, localctx)
                 self.enterOuterAlt(localctx, 3)
-                self.state = 295
+                self.state = 296
                 self.match(UnifiedIRParser.Date)
                 pass
             elif token in [UnifiedIRParser.Year]:
                 localctx = UnifiedIRParser.YearContext(self, localctx)
                 self.enterOuterAlt(localctx, 4)
-                self.state = 296
+                self.state = 297
                 self.match(UnifiedIRParser.Year)
                 pass
             elif token in [UnifiedIRParser.Time]:
                 localctx = UnifiedIRParser.TimeContext(self, localctx)
                 self.enterOuterAlt(localctx, 5)
-                self.state = 297
+                self.state = 298
                 self.match(UnifiedIRParser.Time)
                 pass
             else:
@@ -2800,11 +2809,11 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 48, self.RULE_entity)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 300
-            self.match(UnifiedIRParser.ENTI_START)
             self.state = 301
-            self.string()
+            self.match(UnifiedIRParser.ENTI_START)
             self.state = 302
+            self.string()
+            self.state = 303
             self.match(UnifiedIRParser.ENTI_END)
         except RecognitionException as re:
             localctx.exception = re
@@ -2852,11 +2861,11 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 50, self.RULE_attribute)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 304
-            self.match(UnifiedIRParser.ATTR_START)
             self.state = 305
-            self.string()
+            self.match(UnifiedIRParser.ATTR_START)
             self.state = 306
+            self.string()
+            self.state = 307
             self.match(UnifiedIRParser.ATTR_END)
         except RecognitionException as re:
             localctx.exception = re
@@ -2904,11 +2913,11 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 52, self.RULE_concept)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 308
-            self.match(UnifiedIRParser.CONC_START)
             self.state = 309
-            self.string()
+            self.match(UnifiedIRParser.CONC_START)
             self.state = 310
+            self.string()
+            self.state = 311
             self.match(UnifiedIRParser.CONC_END)
         except RecognitionException as re:
             localctx.exception = re
@@ -2956,11 +2965,11 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 54, self.RULE_predicate)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 312
-            self.match(UnifiedIRParser.PRED_START)
             self.state = 313
-            self.string()
+            self.match(UnifiedIRParser.PRED_START)
             self.state = 314
+            self.string()
+            self.state = 315
             self.match(UnifiedIRParser.PRED_END)
         except RecognitionException as re:
             localctx.exception = re
@@ -3008,11 +3017,11 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 56, self.RULE_qualifier)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 316
-            self.match(UnifiedIRParser.QUAL_START)
             self.state = 317
-            self.string()
+            self.match(UnifiedIRParser.QUAL_START)
             self.state = 318
+            self.string()
+            self.state = 319
             self.match(UnifiedIRParser.QUAL_END)
         except RecognitionException as re:
             localctx.exception = re
@@ -3060,11 +3069,11 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 58, self.RULE_value)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 320
-            self.match(UnifiedIRParser.VALU_START)
             self.state = 321
-            self.string()
+            self.match(UnifiedIRParser.VALU_START)
             self.state = 322
+            self.string()
+            self.state = 323
             self.match(UnifiedIRParser.VALU_END)
         except RecognitionException as re:
             localctx.exception = re
@@ -3105,7 +3114,7 @@ class UnifiedIRParser ( Parser ):
         self.enterRule(localctx, 60, self.RULE_number)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 324
+            self.state = 325
             self.match(UnifiedIRParser.INTEGER)
         except RecognitionException as re:
             localctx.exception = re
@@ -3181,37 +3190,37 @@ class UnifiedIRParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 333 
+            self.state = 334 
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while True:
-                self.state = 333
+                self.state = 334
                 self._errHandler.sync(self)
                 token = self._input.LA(1)
                 if token in [UnifiedIRParser.SPACE]:
-                    self.state = 326
+                    self.state = 327
                     self.match(UnifiedIRParser.SPACE)
                     pass
                 elif token in [UnifiedIRParser.STRING_LITERAL]:
-                    self.state = 327
+                    self.state = 328
                     self.match(UnifiedIRParser.STRING_LITERAL)
                     pass
                 elif token in [UnifiedIRParser.LB]:
-                    self.state = 328
-                    self.match(UnifiedIRParser.LB)
                     self.state = 329
-                    self.string()
+                    self.match(UnifiedIRParser.LB)
                     self.state = 330
+                    self.string()
+                    self.state = 331
                     self.match(UnifiedIRParser.RB)
                     pass
                 elif token in [UnifiedIRParser.LITERAL]:
-                    self.state = 332
+                    self.state = 333
                     self.match(UnifiedIRParser.LITERAL)
                     pass
                 else:
                     raise NoViableAltException(self)
 
-                self.state = 335 
+                self.state = 336 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
                 if not ((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << UnifiedIRParser.LB) | (1 << UnifiedIRParser.SPACE) | (1 << UnifiedIRParser.STRING_LITERAL) | (1 << UnifiedIRParser.LITERAL))) != 0)):

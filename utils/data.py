@@ -49,7 +49,6 @@ def load_overnight(args):
         for domain in list(filter(lambda x: x not in args.domain, overnight_domains)):
             idx = overnight_domains.index(domain)
             train_set += read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), idx)
-            # train_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
         domain = args.domain[0]
         val_set += read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), overnight_domains.index(domain))
         test_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), overnight_domains.index(domain))
@@ -60,11 +59,39 @@ def load_overnight(args):
             idx = overnight_domains.index(domain)
             train_data = read_overnight(os.path.join(args.input_dir, domain + '_train.tsv'), idx)
             random.shuffle(train_data)
-            train_set += train_data[:int(len(train_data) * 0.8)]
-            val_set += train_data[int(len(train_data) * 0.8):]
+            train_set = train_data[:int(len(train_data)*0.8)]
+            # train_set += random.sample(train_data, len(train_data)*args.low_resource//100)
+            val_set += train_data[int(len(train_data)*0.8):]
             test_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
         
         return train_set, val_set, test_set, vocab
+
+def load_metaqa(args):
+    print('Build kb vocabulary')
+    vocab = {
+        'answer_token_to_idx': {}
+    }
+
+    print('Load questions')
+    train_set = json.load(open(os.path.join(args.input_dir, 'train.json')))
+    val_set = json.load(open(os.path.join(args.input_dir, 'val.json')))
+    test_set = json.load(open(os.path.join(args.input_dir, 'test.json')))
+    # for question in chain(train_set, val_set, test_set):
+    #     a = ";".join(question['answer'])    
+    #     if not a in vocab['answer_token_to_idx']:
+    #         vocab['answer_token_to_idx'][a] = len(vocab['answer_token_to_idx'])
+    
+    return train_set, val_set, test_set, vocab
+
+def load_mixed(args):
+    print('Build kb vocabulary')
+    vocab = {
+        'answer_token_to_idx': {}
+    }
+    train_set = json.load(open(os.path.join(args.input_dir, 'train.json')))
+    val_set = json.load(open(os.path.join(args.input_dir, 'val.json')))
+    return train_set, val_set, vocab
+
 
 def load_vocab(path):
     vocab = json.load(open(path))

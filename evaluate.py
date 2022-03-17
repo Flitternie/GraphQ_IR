@@ -3,7 +3,7 @@ import sys
 import json
 from datetime import date
 from collections import defaultdict, Counter
-from tqdm import tqdm
+
 def whether_equal(answer, pred):
     def truncate_float(x):
         # convert answer from '100.0 meters' to '100 meters'
@@ -50,26 +50,23 @@ def whether_equal(answer, pred):
         return answer == pred
 
 
-def load(f):
-    data = []
-    for line in f:
-        data.append(json.loads(line.strip()))
-    return data
+
 def main():
     gt_folder, pred_fn = sys.argv[1], sys.argv[2]
 
     gt_fn = os.path.join(gt_folder, 'test.json')
     gt = json.load(open(gt_fn))
     pred = [x.strip() for x in open(pred_fn).readlines()] # one prediction per line
+    gold_answer = [x.strip() for x in open(sys.argv[3]).readlines()]
 
     # to compute zero-shot accuracy
-    train_set = json.load(open(os.path.join('./dataset_new', 'train.json')))
+    train_set = json.load(open(os.path.join(gt_folder, 'train.json')))
     train_answer_set = set(x['answer'] for x in train_set)
 
     labels = ['overall', 'multihop', 'qualifier', 'comparison', 'logical', 'count', 'verify', 'zero-shot']
     total = {k:0 for k in labels}
     correct = {k:0 for k in labels}
-    for i in tqdm(range(len(pred))):
+    for i in range(len(pred)):
         cur_labels = ['overall']
         functions = [f['function'] for f in gt[i]['program']]
 
@@ -82,8 +79,7 @@ def main():
                 cur_labels.append('qualifier')
                 break
         for f in functions:
-            # if f in {'SelectBetween','SelectAmong'}:
-            if f in {'Select'}:
+            if f in {'Select','SelectBetween','SelectAmong'}:
                 cur_labels.append('comparison')
                 break
         for f in functions:
@@ -100,6 +96,7 @@ def main():
                 break
 
         answer = gt[i]['answer']
+        # answer = gold_answer[i]
         if answer not in train_answer_set:
             cur_labels.append('zero-shot')
 
@@ -113,13 +110,44 @@ def main():
             total[k] += 1
 
     for k in labels:
-        if total[k] == 0:
-            print('{}: {:.2f}% ({}/{})'.format(k, 0, correct[k], total[k]))
-        else:
-            print('{}: {:.2f}% ({}/{})'.format(k, correct[k]/total[k]*100, correct[k], total[k]))
+        print('{}: {:.2f}% ({}/{})'.format(k, correct[k]/total[k]*100, correct[k], total[k]))
     if len(pred) < len(gt):
         print('WARNING: there are only {} predictions (need {})'.format(len(pred), len(gt)))
 
 
+def acc_by_length():
+    gt_folder, pred_fn = sys.argv[1], sys.argv[2]
+
+    gt_fn = os.path.join(gt_folder, 'test.json')
+    gt = json.load(open(gt_fn))
+    pred = [x.strip() for x in open(pred_fn).readlines()] # one prediction per line
+
+    labels = ['2-3', '4-5', '6-7', '8-9', '10-14']
+    mapping = {
+        2: '2-3',
+    #    3: '2-3',
+        4: '4-5',
+        5: '4-5',
+        6: '6-7',
+        7: '6-7',
+        8: '8-9',
+        9: '8-9',
+    }
+    correct = defaultdict(int)
+    total = defaultdict(int)
+
+    for i in range(len(pred)):
+        answer = gt[i]['answer']
+        length = len(gt[i]['program'])
+        label = mapping.get(length, '10-')
+
+        if whether_equal(answer, pred[i]):
+            correct[label] += 1
+        total[label] += 1
+
+    for k in labels:
+        print('{}: {:.2f}% ({}/{})'.format(k, correct[k]/total[k]*100, correct[k], total[k])) if total[k] > 0 else print('{}: {:.2f}% ({}/{})'.format(k, 0 , correct[k], total[k]))
+
 if __name__ == '__main__':
     main()
+    acc_by_length()

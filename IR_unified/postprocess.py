@@ -13,8 +13,8 @@ from itertools import chain
 from tqdm import tqdm
 import re
 
-from bart2ir.predict import prepare
-from IR_unified.self_correct import IRCorrector
+from bart2query.ir.predict import prepare
+from IR_unified.corrector import IRCorrector
 
 from utils.misc import init_vocab
 from transformers import *
