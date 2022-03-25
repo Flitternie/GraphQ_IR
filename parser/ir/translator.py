@@ -41,7 +41,9 @@ class Translator():
         ir = post_process_ir(ir)
         raise NotImplementedError()
     
-    def to_overnight(self, ir):
+    def to_overnight(self, ir, domain_idx=None):
+        if domain_idx and self.overnight_emitter.domain != overnight_domains[domain_idx]:
+            self.set_domain(domain_idx)
         tree = self.parse(ir)
         self.walker.walk(self.overnight_emitter, tree)
         logical_form = self.overnight_emitter.get_logical_form(tree)

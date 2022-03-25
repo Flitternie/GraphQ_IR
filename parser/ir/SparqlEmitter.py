@@ -8,18 +8,8 @@ from .UnifiedIRParserListener import UnifiedIRParserListener
 
 from bart2query.program.executor_rule_new import RuleExecutor
 
+from ..utils import *
 from .misc import *
-
-class strictDict(dict):
-    def __setitem__(self, key, value):
-        if key not in self:
-            raise KeyError("{} is not a legal key of this strictDict".format(repr(key)))
-        dict.__setitem__(self, key, value)
-    
-class entitySet(str):
-    def __new__(self, value="", concept=""):
-        self.concept = concept
-        return str.__new__(self, value)
 
 class SparqlEmitter(UnifiedIRParserListener):
     def __init__(self):
@@ -64,9 +54,9 @@ class SparqlEmitter(UnifiedIRParserListener):
 
     def insert_entityset(self, ctx, value, concept=None):
         if isinstance(ctx.slots["entitySet"], list):
-            ctx.slots["entitySet"].append(entitySet(value, concept))
+            ctx.slots["entitySet"].append(entitySet(value, concept=concept))
         else: 
-            ctx.slots["entitySet"] = entitySet(value, concept)
+            ctx.slots["entitySet"] = entitySet(value, concept=concept)
     
     def get_value_type(self, key, value=None):
         try:

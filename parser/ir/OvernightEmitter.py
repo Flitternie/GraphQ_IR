@@ -7,29 +7,9 @@ from .UnifiedIRLexer import UnifiedIRLexer
 from .UnifiedIRParser import UnifiedIRParser
 from .UnifiedIRParserListener import UnifiedIRParserListener
 
+from ..utils import *
+
 overnight_domains = ['basketball', 'blocks', 'calendar', 'housing', 'publications', 'recipes', 'restaurants', 'socialnetwork']
-
-
-class strictDict(dict):
-    def __setitem__(self, key, value):
-        if key not in self:
-            raise KeyError("{} is not a legal key of this strictDict".format(repr(key)))
-        dict.__setitem__(self, key, value)
-
-class entitySet():
-    def __init__(self, value="", is_atom=False, is_pop=False):
-        self.value = str(value)
-        self.is_atom = is_atom
-        self.is_pop = is_pop
-    
-    def __str__(self):
-        return self.value
-    
-    def __repr__(self):
-        return self.value
-    
-    def __len__(self):
-        return len(self.value)
 
 def read_grammar(file_path):
     grammar = {}
@@ -137,9 +117,9 @@ class OvernightEmitter(UnifiedIRParserListener):
 
     def insert_entityset(self, ctx, value, is_atom=False, is_pop=False):
         if isinstance(ctx.slots["entitySet"], list):
-            ctx.slots["entitySet"].append(entitySet(value, is_atom, is_pop))
+            ctx.slots["entitySet"].append(entitySet(value, is_atom=is_atom, is_pop=is_pop))
         else:
-            ctx.slots["entitySet"] = entitySet(value, is_atom, is_pop)
+            ctx.slots["entitySet"] = entitySet(value, is_atom=is_atom, is_pop=is_pop)
 
     def enterRoot(self, ctx: UnifiedIRParser.RootContext):
         self.initialize()
@@ -270,7 +250,7 @@ class OvernightEmitter(UnifiedIRParserListener):
     
     def exitEntitySetByPredicate(self, ctx: UnifiedIRParser.EntitySetByPredicateContext):
         if ctx.slots["entitySet"][0].is_pop:
-            ctx.slots["entitySet"][0].value = "( var s )"
+            ctx.slots["entitySet"][0] = ctx.slots["entitySet"][0].reassign("( var s )")
 
         if ctx.slots["op"] == "" and ctx.slots["value"] == "":
             ctx.slots["gate"] = "=" if ctx.slots["gate"] else "! ="
