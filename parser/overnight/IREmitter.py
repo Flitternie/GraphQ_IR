@@ -2,36 +2,11 @@ import os
 import re
 from antlr4 import *
 
-try:
-    from .OvernightLexer import OvernightLexer
-    from .OvernightParser import OvernightParser
-    from .OvernightListener import OvernightListener
-except:
-    from OvernightLexer import OvernightLexer
-    from OvernightParser import OvernightParser
-    from OvernightListener import OvernightListener
+from .OvernightLexer import OvernightLexer
+from .OvernightParser import OvernightParser
+from .OvernightListener import OvernightListener
 
-class strictDict(dict):
-    def __setitem__(self, key, value):
-        if key not in self:
-            raise KeyError("{} is not a legal key of this strictDict".format(repr(key)))
-        dict.__setitem__(self, key, value)
-    
-class entitySet():
-    def __init__(self, value="", is_atom=False, is_pop=False):
-        self.value = str(value)
-        self.is_atom = is_atom
-        self.is_pop = is_pop
-    
-    def __str__(self):
-        return self.value
-    
-    def __repr__(self):
-        return self.value
-    
-    def __len__(self):
-        return len(self.value)
-
+from ..utils import *
 
 class IREmitter(OvernightListener):
     def __init__(self):
@@ -59,9 +34,9 @@ class IREmitter(OvernightListener):
     
     def insert_entityset(self, ctx, value, is_atom=False, is_pop=False):
         if isinstance(ctx.slots["entitySet"], list):
-            ctx.slots["entitySet"].append(entitySet(value, is_atom, is_pop))
+            ctx.slots["entitySet"].append(entitySet(value, is_atom=is_atom, is_pop=is_pop))
         else: 
-            ctx.slots["entitySet"] = entitySet(value, is_atom, is_pop)        
+            ctx.slots["entitySet"] = entitySet(value, is_atom=is_atom, is_pop=is_pop)        
             
     def scoping(self, type, value):
         if type not in self.data_type.keys():

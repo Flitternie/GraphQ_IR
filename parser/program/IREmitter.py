@@ -4,30 +4,7 @@ from .ProgramLexer import ProgramLexer
 from .ProgramParser import ProgramParser
 from .ProgramListener import ProgramListener
 
-class strictDict(dict):
-    def __setitem__(self, key, value):
-        if key not in self:
-            raise KeyError("{} is not a legal key of this strictDict".format(repr(key)))
-        dict.__setitem__(self, key, value)
-    
-class entitySet():
-    def __init__(self, value="", is_atom=False, is_pop=False):
-        self.value = str(value)
-        self.is_atom = is_atom
-        self.is_pop = is_pop
-    
-    def __getattr__(self, name):
-        return getattr(self.value, name)
-    
-    def __str__(self):
-        return self.value
-    
-    def __repr__(self):
-        return self.value
-    
-    def __len__(self):
-        return len(self.value)
-        
+from ..utils import *
 
 class IREmitter(ProgramListener):
     def __init__(self):

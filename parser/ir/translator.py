@@ -42,7 +42,7 @@ class Translator():
         raise NotImplementedError()
     
     def to_overnight(self, ir, domain_idx=None):
-        if domain_idx and self.overnight_emitter.domain != overnight_domains[domain_idx]:
+        if domain_idx != None and self.overnight_emitter.domain != overnight_domains[domain_idx]:
             self.set_domain(domain_idx)
         tree = self.parse(ir)
         self.walker.walk(self.overnight_emitter, tree)
