@@ -63,6 +63,15 @@ class OvernightEmitter(UnifiedIRParserListener):
             "ensureNumericEntity":      PREFIX + ".ensureNumericEntity",
         }
         self.grammar = read_grammar("./data/overnight/grammar/")
+    
+    def initialize(self):
+        self.logical_form = ""
+    
+    def set_domain(self, domain):
+        self.domain = domain
+
+    def get_logical_form(self, ctx):
+        return self.logical_form
 
     def get_full_name(self, abbr, datatype, domain):
         datatype = [datatype] if isinstance(datatype, str) else datatype
@@ -106,20 +115,7 @@ class OvernightEmitter(UnifiedIRParserListener):
         value = value.replace(" : ", " ") if value_type == "time" else value
         return "( {} {} )".format(value_type, value) if value_type != "" else value
 
-    def initialize(self):
-        self.logical_form = ""
-    
-    def set_domain(self, domain):
-        self.domain = domain
 
-    def get_logical_form(self, ctx):
-        return self.logical_form
-
-    def insert_entityset(self, ctx, value, is_atom=False, is_pop=False):
-        if isinstance(ctx.slots["entitySet"], list):
-            ctx.slots["entitySet"].append(entitySet(value, is_atom=is_atom, is_pop=is_pop))
-        else:
-            ctx.slots["entitySet"] = entitySet(value, is_atom=is_atom, is_pop=is_pop)
 
     def enterRoot(self, ctx: UnifiedIRParser.RootContext):
         self.initialize()
@@ -170,7 +166,7 @@ class OvernightEmitter(UnifiedIRParserListener):
     
     def exitEntitySetGroup(self, ctx: UnifiedIRParser.EntitySetGroupContext):
         assert ctx.slots["setOP"] == "or" and isinstance(ctx.slots["entitySet"], list) and len(ctx.slots["entitySet"]) == 2
-        self.insert_entityset(ctx.parentCtx, "( {} {} {} )".format(self.func["concat"], ctx.slots["entitySet"][0], ctx.slots["entitySet"][1]))
+        insert(ctx.parentCtx, "( {} {} {} )".format(self.func["concat"], ctx.slots["entitySet"][0], ctx.slots["entitySet"][1]))
         return super().exitEntitySetGroup(ctx)
 
     def enterEntitySetFilter(self, ctx: UnifiedIRParser.EntitySetFilterContext):
@@ -178,7 +174,7 @@ class OvernightEmitter(UnifiedIRParserListener):
         return super().enterEntitySetFilter(ctx)
     
     def exitEntitySetFilter(self, ctx: UnifiedIRParser.EntitySetFilterContext):
-        self.insert_entityset(ctx.parentCtx, ctx.slots["entitySet"])
+        insert(ctx.parentCtx, ctx.slots["entitySet"])
         return super().exitEntitySetFilter(ctx)
     
     def enterEntitySetAtom(self, ctx: UnifiedIRParser.EntitySetAtomContext):
@@ -186,11 +182,11 @@ class OvernightEmitter(UnifiedIRParserListener):
         return super().enterEntitySetAtom(ctx)
     
     def exitEntitySetAtom(self, ctx: UnifiedIRParser.EntitySetAtomContext):
-        self.insert_entityset(ctx.parentCtx, ctx.slots["entity"], is_atom=True)
+        insert(ctx.parentCtx, ctx.slots["entity"], is_atom=True)
         return super().exitEntitySetAtom(ctx)
     
     def exitEntitySetPlaceholder(self, ctx: UnifiedIRParser.EntitySetPlaceholderContext):
-        self.insert_entityset(ctx.parentCtx, "", is_pop=True)
+        insert(ctx.parentCtx, "", is_pop=True)
         return super().exitEntitySetPlaceholder(ctx)
     
     def enterEntitySetByAttribute(self, ctx: UnifiedIRParser.EntitySetByAttributeContext):
@@ -205,7 +201,7 @@ class OvernightEmitter(UnifiedIRParserListener):
             subquery = "( {} {} {} {} {} )".format(self.func["filter"], ctx.slots["entitySet"], ctx.slots["attribute"], ctx.slots["op"], ctx.slots["value"])
         # if ctx.slots["conceptType"] == "TypeNP":
         #     subquery_constraint = "( {} ( getProperty ( singleton {} ) ( string ! type ) ) {} {} {} )".format(self.func["filter"], ctx.slots["concept"], ctx.slots["attribute"], ctx.slots["op"], value)
-        self.insert_entityset(ctx.parentCtx, subquery)
+        insert(ctx.parentCtx, subquery)
         return super().exitEntitySetByAttribute(ctx)
     
     def enterFilterByAttribute(self, ctx: UnifiedIRParser.FilterByAttributeContext):
@@ -230,7 +226,7 @@ class OvernightEmitter(UnifiedIRParserListener):
             subquery = "( lambda s ( {} ( var s ) {} {} ) )".format(self.func["superlative"], ctx.slots["op"], ctx.slots["attribute"])
         else:
             subquery = "( {} {} {} {} )".format(self.func["superlative"], ctx.slots["entitySet"], ctx.slots["op"], ctx.slots["attribute"])
-        self.insert_entityset(ctx.parentCtx, subquery)
+        insert(ctx.parentCtx, subquery)
         return super().exitEntitySetByRank(ctx)
     
     def enterFilterByRank(self, ctx: UnifiedIRParser.FilterByRankContext):
@@ -294,7 +290,7 @@ class OvernightEmitter(UnifiedIRParserListener):
         if ctx.slots["entitySet"][0].is_pop:
             subquery = "( lambda s {} )".format(subquery)
         
-        self.insert_entityset(ctx.parentCtx, subquery)
+        insert(ctx.parentCtx, subquery)
         return super().exitEntitySetByPredicate(ctx)
     
     def enterFilterByPredicate(self, ctx: UnifiedIRParser.FilterByPredicateContext):
@@ -337,7 +333,7 @@ class OvernightEmitter(UnifiedIRParserListener):
             else:
                 # relNP + CP (through domainCPNP)
                 subquery = "( {} ( {} ( {} {} ) ) {} )".format(self.func["getProperty"], ctx.slots["entitySet"], self.func["domain"], concept["RelNP"], concept["RelNP"])
-        self.insert_entityset(ctx.parentCtx, subquery)
+        insert(ctx.parentCtx, subquery)
         return super().exitEntitySetByConcept(ctx)
 
     

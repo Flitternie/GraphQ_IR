@@ -15,3 +15,9 @@ class entitySet(str):
     
     def reassign(self, value: str):
         return entitySet(value, is_atom=self.is_atom, is_pop=self.is_pop)
+
+def insert(ctx, value, is_atom=False, is_pop=False, concept=None):
+    if isinstance(ctx.slots["entitySet"], list):
+        ctx.slots["entitySet"].append(entitySet(value, is_atom=is_atom, is_pop=is_pop, concept=concept))
+    else:
+        ctx.slots["entitySet"] = entitySet(value, is_atom=is_atom, is_pop=is_pop, concept=concept)

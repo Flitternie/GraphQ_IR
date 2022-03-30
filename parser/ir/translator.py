@@ -6,6 +6,7 @@ from .UnifiedIRParser import UnifiedIRParser
 from .UnifiedIRParserListener import UnifiedIRParserListener
 from .SparqlEmitter import SparqlEmitter
 from .OvernightEmitter import OvernightEmitter, overnight_domains
+from .KoplEmitter import KoplEmitter
 
 def post_process_ir(ir):
     for token in ["<E>","</E>","<ES>","</ES>","<A>","</A>","<R>","</R>","<V>","</V>","<Q>","</Q>","<C>","</C>"]:
@@ -16,6 +17,7 @@ def post_process_ir(ir):
 class Translator():
     def __init__(self):
         self.sparql_emitter = SparqlEmitter()
+        self.kopl_emitter = KoplEmitter()
         self.overnight_emitter = OvernightEmitter()
         self.walker = ParseTreeWalker() 
     
@@ -39,7 +41,10 @@ class Translator():
     
     def to_kopl(self, ir):
         ir = post_process_ir(ir)
-        raise NotImplementedError()
+        tree = self.parse(ir)
+        self.walker.walk(self.kopl_emitter, tree)
+        logical_form = self.kopl_emitter.get_logical_form(tree)
+        return logical_form
     
     def to_overnight(self, ir, domain_idx=None):
         if domain_idx != None and self.overnight_emitter.domain != overnight_domains[domain_idx]:
@@ -52,11 +57,4 @@ class Translator():
     def to_cypher(self, ir):
         raise NotImplementedError()
 
-
-if __name__ == '__main__':
-    translator = Translator()
-    ir = ''''''
-    logical_form = translator.to_sparql(ir)
-    print(logical_form)
-    
     
