@@ -32,6 +32,10 @@ class IREmitter(SparqlListener):
     def exitQuery(self, ctx: SparqlParser.QueryContext):
         if self.queryType == "EntityQuery":
             self.ir = "what is {}".format(ctx.slots["entitySet"])
+        if self.queryType == 'AttributeQuery':
+            self.ir = "what {} Of {}".format(ctx.slots["attribute"], ctx.slots["entitySet"])
+        if self.queryType == "PredicateQuery":
+            self.ir = "what from {} to {}".format(ctx.slots["relationEntitySet1"], ctx.slots["relationEntitySet2"])
         return super().exitQuery(ctx)
 
         # Enter a parse tree produced by SparqlParser#prologue.
@@ -220,29 +224,36 @@ class IREmitter(SparqlListener):
         if isinstance(ctx.parentCtx, SparqlParser.WhereClauseContext):
             if self.queryType == 'CountQuery' or self.queryType == 'EntityQuery':
                 print(ctx.slots['triple_table'])
+                ctx.parentCtx.slots['entitySet'] = scout_entity_set(ctx.slots['triple_table'], self.query_var)
 
-                entity = 'Ones'
-                entitySets = []
-
-                for triple in ctx.slots['triple_table'][self.query_var]:
-                    if triple[2] == '?c':
-                        entity = '<C> {} </C>'.format(get_class_label(ctx.slots['triple_table']))
-                    if triple[1] == '<pred:name>':
-                        entity = '<E> {} </E>'.format(get_class_label(triple[1]))
+            if self.queryType == 'AttributeQuery':
+                print(ctx.slots['triple_table'])
+                attribute = ''
+                es_var = ''
 
                 for triple in ctx.slots['triple_table'][self.query_var]:
-                    if triple[2].startswith('?pv'):
-                        entity_set = '<ES> {} whose <A> {} </A> is text <V> {} </V>'
-                        label, value = get_attribute(ctx.slots['triple_table'], triple[2])
-                        entity_set = entity_set.format(entity, label, value)
-                        entitySets.append(entity_set)
+                    if triple[2] == self.query_var:
+                        attribute = '<A> {} </A>'.format(re.sub(r'[<>]', '', triple[1]).replace('_', ' '))
+                        es_var = triple[0]
+                        break
 
-                ES = f"{entitySets.pop()}"
-                while len(entitySets) != 0:
-                    es = entitySets.pop()
-                    ES = "<ES> {} and {} </ES>".format(ES, es)
+                es = scout_entity_set(ctx.slots['triple_table'], es_var, excluding=[self.query_var])
+                ctx.parentCtx.slots['entitySet'] = es
+                ctx.parentCtx.slots['attribute'] = attribute
+            if self.queryType == 'PredicateQuery':
+                print(ctx.slots['triple_table'])
+                es_var1, es_var2 = '', ''
+                for triple in ctx.slots['triple_table'][self.query_var]:
+                    if triple[1] == self.query_var:
+                        es_var1 = triple[0]
+                        es_var2 = triple[2]
 
-                ctx.parentCtx.slots['entitySet'] = ES
+                print(es_var1, es_var2)
+
+                es1 = scout_entity_set(ctx.slots['triple_table'], es_var1, excluding=[self.query_var])
+                es2 = scout_entity_set(ctx.slots['triple_table'], es_var2, excluding=[self.query_var])
+                ctx.parentCtx.slots['relationEntitySet1'] = es1
+                ctx.parentCtx.slots['relationEntitySet2'] = es2
 
         return super().exitGroupGraphPattern(ctx)
 
@@ -346,17 +357,24 @@ class IREmitter(SparqlListener):
         if ctx.slots["head"] == self.query_var and not self.queryType:
             self.queryType = "EntityQuery"
         elif ctx.slots["relation"] == self.query_var and not self.queryType:
-            self.queryType = "RelationQuery"
+            self.queryType = "PredicateQuery"
         elif ctx.slots["tail"] == self.query_var and not self.queryType:
             self.queryType = "EntityQuery"
 
         if ctx.slots['head'] not in ctx.parentCtx.slots['triple_table'].keys():
             ctx.parentCtx.slots['triple_table'][ctx.slots['head']] = []
+        if ctx.slots['relation'] not in ctx.parentCtx.slots['triple_table'].keys() and\
+                ctx.slots['relation'].startswith('?'):
+            ctx.parentCtx.slots['triple_table'][ctx.slots['relation']] = []
         if ctx.slots['dtype'] == 'var' and ctx.slots['tail'] not in ctx.parentCtx.slots['triple_table'].keys():
             ctx.parentCtx.slots['triple_table'][ctx.slots['tail']] = []
 
         ctx.parentCtx.slots['triple_table'][ctx.slots['head']].append(
             (ctx.slots['head'], ctx.slots['relation'], ctx.slots['tail']))
+
+        if ctx.slots['relation'].startswith('?'):
+            ctx.parentCtx.slots['triple_table'][ctx.slots['relation']].append(
+                (ctx.slots['head'], ctx.slots['relation'], ctx.slots['tail']))
 
         if ctx.slots['dtype'] == 'var':
             ctx.parentCtx.slots['triple_table'][ctx.slots['tail']].append(
@@ -712,12 +730,13 @@ def merge_dict(d1: dict, d2: dict):
     return new_dict
 
 
-def get_class_label(table: dict):
-    assert '?c' in table.keys()
-    for triple in table['?c']:
-        if triple[0] == '?c' and triple[1] == '<pred:name>':
+def get_label(table: dict, var):
+    assert var in table.keys()
+    for triple in table[var]:
+        if triple[0] == var and triple[1] == '<pred:name>':
             return triple[2]
     return ''
+
 
 def get_attribute(table: dict, var):
     assert var in table.keys()
@@ -730,6 +749,41 @@ def get_attribute(table: dict, var):
 
     return label, value
 
+
+def scout_entity_set(table: dict, var: str, excluding=[]):
+    entity = ''
+    cls = ''
+    entitySets = []
+
+    for triple in table[var]:
+        if triple[2] == '?c':
+            cls = '<C> {} </C>'.format(get_label(table, var))
+        if triple[1] == '<pred:name>':
+            entity = '<E> {} </E>'.format(triple[2])
+
+    if entity == '' and cls != '':
+        entity = cls
+    elif entity == '' and cls == '':
+        entity = 'Ones'
+    elif cls != '' and cls != '':
+        entity = '{} {}'.format(cls, entity)
+
+    for triple in table[var]:
+        if triple[2].startswith('?pv') and triple[2] not in excluding and triple[1] not in excluding:
+            entity_set = '<ES> {} whose <A> {} </A> is text <V> {} </V> </ES>'
+            label, value = get_attribute(table, triple[2])
+            entity_set = entity_set.format(entity, label, value)
+            entitySets.append(entity_set)
+
+    if entitySets:
+        ES = f"{entitySets.pop()}"
+        while len(entitySets) != 0:
+            es = entitySets.pop()
+            ES = "<ES> {} and {} </ES>".format(ES, es)
+    else:
+        ES = entity
+
+    return ES
 
 
 

@@ -22,7 +22,11 @@ class Translator():
         self.emitter = IREmitter()
         self.walker = ParseTreeWalker()
 
+    def normalize(self, logical_form):
+        return logical_form
+
     def parse(self, logical_form):
+        logical_form = self.normalize(logical_form)
         input_stream = InputStream(logical_form)
         lexer = SparqlLexer(input_stream)
         token_stream = CommonTokenStream(lexer)
