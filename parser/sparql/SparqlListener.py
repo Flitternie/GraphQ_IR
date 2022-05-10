@@ -53,6 +53,24 @@ class SparqlListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SparqlParser#entityQueryCondition.
+    def enterEntityQueryCondition(self, ctx:SparqlParser.EntityQueryConditionContext):
+        pass
+
+    # Exit a parse tree produced by SparqlParser#entityQueryCondition.
+    def exitEntityQueryCondition(self, ctx:SparqlParser.EntityQueryConditionContext):
+        pass
+
+
+    # Enter a parse tree produced by SparqlParser#countQueryCondition.
+    def enterCountQueryCondition(self, ctx:SparqlParser.CountQueryConditionContext):
+        pass
+
+    # Exit a parse tree produced by SparqlParser#countQueryCondition.
+    def exitCountQueryCondition(self, ctx:SparqlParser.CountQueryConditionContext):
+        pass
+
+
     # Enter a parse tree produced by SparqlParser#constructQuery.
     def enterConstructQuery(self, ctx:SparqlParser.ConstructQueryContext):
         pass
