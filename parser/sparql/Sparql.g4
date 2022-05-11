@@ -54,7 +54,15 @@ prefixDecl
     ;
 
 selectQuery
-    : 'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( var_+ | '*' ) datasetClause* whereClause solutionModifier
+    : 'SELECT' ( entityQueryCondition | countQueryCondition ) datasetClause* whereClause solutionModifier
+    ;
+
+entityQueryCondition
+    : ( 'DISTINCT' | 'REDUCED' )? ( var_+ | '*' )
+    ;
+
+countQueryCondition
+    : ( '(' 'COUNT' '(' entityQueryCondition ')' 'AS' var_+ ')' )
     ;
 
 constructQuery
