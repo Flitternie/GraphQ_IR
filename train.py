@@ -1,48 +1,31 @@
 import os
-import pickle
-import torch
-import torch.optim as optim
-import torch.nn as nn
-import argparse
-import shutil
-import json
 import sys
-from tqdm import tqdm
-from datetime import date
-from utils.misc import MetricLogger, seed_everything, ProgressBar
-from utils.load_kb import DataForSPARQL
-from utils.data import DataLoader, DistributedDataLoader, prepare_dataset
-from transformers import BartConfig, BartForConditionalGeneration, BartTokenizer
-
-import torch.optim as optim
-import logging
 import time
-from utils.lr_scheduler import get_linear_schedule_with_warmup
+import logging
+import argparse
+import importlib
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+
+from transformers import AutoConfig, AutoModelForSeq2SeqLM, AutoTokenizer
+
+from inference import validate
+from utils.misc import seed_everything, ProgressBar
+from utils.data import DataLoader, DistributedDataLoader, prepare_dataset
+from utils.lr_scheduler import get_linear_schedule_with_warmup
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
 import warnings
-warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql query
+warnings.simplefilter("ignore")
 
 def train(args):
-    if args.mode == 'program':
-        from bart2query.program.predict import validate
-    elif args.mode == 'sparql':
-        from bart2query.sparql.predict import validate
-    elif args.mode == 'overnight':
-        from bart2query.overnight.predict import validate
-    elif args.mode == 'cypher':
-        from bart2query.cypher.predict import validate
-    elif args.ir_mode == 'TIR':
-        from bart2query.ir.predict import validate
-    else:
-        raise ValueError('mode {} not supported'.format(args.mode))
-
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     if args.local_rank in [-1, 0]:
         logging.info("Create train_loader and val_loader.........")
@@ -57,13 +40,23 @@ def train(args):
     else:
         train_loader = DataLoader(vocab_json, train_pt, args.batch_size, training=True, pretrain=args.pretrain)
     val_loader = DataLoader(vocab_json, val_pt, args.batch_size, training=False, pretrain=False)
-
-    kb = DataForSPARQL(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
     
     if args.local_rank in [-1, 0]:
         logging.info("Create model.........")
-    config_class, model_class, tokenizer_class = (BartConfig, BartForConditionalGeneration, BartTokenizer)
+    _, model_class, tokenizer_class = (AutoConfig, AutoModelForSeq2SeqLM, AutoTokenizer)
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
+
+    try:
+        spec = importlib.util.spec_from_file_location("config", args.config)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        task_special_tokens = config.special_tokens
+        tokenizer.add_tokens(task_special_tokens)
+        if args.local_rank in [-1, 0]:
+            logging.info("Add {} special tokens.".format(len(task_special_tokens)))
+    except:
+        raise Exception('Error loading config file')
+
     model = model_class.from_pretrained(args.ckpt) if args.ckpt else model_class.from_pretrained(args.model_name_or_path) 
     model.resize_token_embeddings(len(tokenizer))
     
@@ -112,14 +105,14 @@ def train(args):
         logging.info('Checking...')
         logging.info("===================Dev==================")
     
-    tr_loss, logging_loss = 0.0, 0.0
+    tr_loss = 0.0
     best_acc, current_acc = 0.0, 0.0
     model.zero_grad()
     if args.local_rank in [-1, 0]:
+        # current_acc, _ = validate(args, model, val_loader, device, tokenizer)
         print("Current performance on validation set: %f" % (current_acc))
     
-    logging_steps = round(len(train_loader.dataset)/args.batch_size) // args.logging_per_epoch
-    save_steps = logging_steps
+    save_steps = round(len(train_loader.dataset)/args.batch_size) // args.logging_per_epoch
     epochs_not_improving = 0
     
     for epoch_i in range(int(args.num_train_epochs)):
@@ -155,8 +148,9 @@ def train(args):
             if torch.cuda.device_count() > 1:
                 loss = loss.sum()
             loss.backward()
-            pbar(step, {'loss': loss.item()})
-            tr_loss += loss.item()
+            loss_num = loss.item()
+            pbar(step, {'loss': loss_num})
+            tr_loss += loss_num
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 optimizer.step()
@@ -164,23 +158,23 @@ def train(args):
                 model.zero_grad()
                 global_step += 1
 
-            if logging_steps > 0 and global_step % logging_steps == 0 and args.local_rank in [-1, 0]:
-                logging.info("===================Dev==================")
-                current_acc, _ = validate(args, kb, model, val_loader, device, tokenizer)
-                print("Current best performance on validation set: %f" % (best_acc))
+            if global_step % save_steps == 0 and args.local_rank in [-1, 0]:
+                logging.info("Epoch %d loss: %.3f" % (epoch_i, loss_num))
+                current_acc, _ = validate(args, model, val_loader, device, tokenizer)
+                # print("Current best performance on validation set: %f" % (best_acc))
             
-            if save_steps > 0 and global_step % save_steps == 0 and current_acc > best_acc and args.local_rank in [-1, 0]:
+            if args.local_rank in [-1, 0] and save_steps > 0 and global_step % save_steps == 0 and current_acc > best_acc:
                 epochs_not_improving = 0
                 best_acc = current_acc
                 print("Best performance on validation set updated: %f" % (best_acc))
                 # Save model checkpoint
-                # output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step + prefix))
                 output_dir = os.path.join(args.output_dir, "checkpoint-best")
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir, exist_ok=True)
+                # Take care of distributed/parallel training
                 model_to_save = (
                     model.module if hasattr(model, "module") else model
-                )  # Take care of distributed/parallel training
+                )  
                 model_to_save.save_pretrained(output_dir)
                 torch.save(args, os.path.join(output_dir, "training_args.bin"))
                 logging.info("Saving model checkpoint to %s", output_dir)
@@ -207,7 +201,8 @@ def main():
     # input and output
     parser.add_argument('--input_dir', required=True)
     parser.add_argument('--output_dir', required=True)
-    parser.add_argument('--model_name_or_path', required=True, help='pretrained language models')
+    parser.add_argument('--config', required=True)
+    parser.add_argument('--model_name_or_path', required=True)
     parser.add_argument('--ckpt', default=None)
 
     # training parameters
@@ -216,7 +211,7 @@ def main():
     parser.add_argument('--seed', type=int, default=666, help='random seed')
     parser.add_argument('--learning_rate', default=3e-5, type=float)
     parser.add_argument('--num_train_epochs', default=25, type=int)
-    parser.add_argument('--logging_per_epoch', default=2, type=int)
+    parser.add_argument('--logging_per_epoch', default=1, type=int)
     parser.add_argument('--early_stopping', default=5, type=int)
     parser.add_argument('--warmup_proportion', default=0.1, type=float,
                         help="Proportion of training to perform linear learning rate warmup for,E.g., 0.1=10% of training.")
@@ -232,8 +227,7 @@ def main():
                     help='node rank for distributed training')
     parser.add_argument('--port', default=12355, type=int)
 
-    parser.add_argument('--mode', required=True, choices=['sparql', 'program', 'overnight', 'cypher'])
-    parser.add_argument('--ir_mode', default=None, choices=['TIR', 'UIR', 'CFQ_IR'])
+    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq'])
     parser.add_argument('--self_correct', action='store_true')
     
     # validating parameters
@@ -243,6 +237,7 @@ def main():
     # model hyperparameters
     parser.add_argument('--dim_hidden', default=1024, type=int)
     parser.add_argument('--alpha', default = 1e-4, type = float)
+
     args = parser.parse_args()
 
     if not os.path.exists(args.output_dir):
@@ -251,6 +246,7 @@ def main():
     fileHandler = logging.FileHandler(os.path.join(args.output_dir, '{}.log'.format(time_)))
     fileHandler.setFormatter(logFormatter)
     rootLogger.addHandler(fileHandler)
+    
     # args display
     if args.local_rank in [-1, 0]:
         for k, v in vars(args).items():

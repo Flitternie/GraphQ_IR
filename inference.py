@@ -1,19 +1,15 @@
 import os
-import torch
-import argparse
 import sys
-
-from utils.misc import MetricLogger, seed_everything, ProgressBar
-from utils.load_kb import DataForSPARQL
-from utils.data import DataLoader
-
-from transformers import BartConfig, BartForConditionalGeneration, BartTokenizer
-
-import torch.optim as optim
-import logging
 import time
-from utils.lr_scheduler import get_linear_schedule_with_warmup
-import re
+import logging
+import argparse
+import importlib
+
+import torch
+from tqdm import tqdm
+from transformers import AutoConfig, BartForConditionalGeneration, AutoTokenizer, set_seed
+
+from utils.data import DataLoader
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
@@ -21,34 +17,59 @@ rootLogger = logging.getLogger()
 import warnings
 warnings.simplefilter("ignore") # hide warnings that caused by invalid sparql query
 
-def inference(args):
-    if args.mode == 'program':
-        from bart2query.program.predict import validate
-    elif args.mode == 'sparql':
-        from bart2query.sparql.predict import validate
-    elif args.mode == 'overnight':
-        from bart2query.overnight.predict import validate
-    elif args.mode == 'cypher':
-        from bart2query.cypher.predict import validate
-    elif args.ir_mode == 'TIR':
-        from bart2query.ir.predict import validate
+def validate(args, model, data, device, tokenizer):
+    try:
+        spec = importlib.util.spec_from_file_location("config", args.config)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+    except:
+        raise Exception('Error loading config file')
+        
+    model.eval()
+    model = model.module if hasattr(model, "module") else model
+    
+    with torch.no_grad():
+        all_outputs = []
+        all_targets = []
+        all_answers = []
+        for batch in tqdm(data, total=len(data)):
+            source_ids, source_mask, _, target_ids, answers = [x.to(device) for x in batch]
+            outputs = model.generate(
+                input_ids=source_ids,
+                max_length = 500,
+            )
+            all_outputs.extend(outputs.cpu().numpy())
+            all_targets.extend(target_ids.cpu().numpy())
+            all_answers.extend(answers.cpu().numpy())
+            
+        outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for output_id in all_outputs]
+        targets = [tokenizer.decode(target_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for target_id in all_targets]
 
+    with open("./test.txt", "w") as f:
+        for output, target in zip(outputs, targets):
+            f.write("{}\t{}\n".format(output, target))
+
+    lf_matching, str_matching = config.evaluate(args, outputs, targets, all_answers, data)
+    logging.info('Execution accuracy: {}, String matching accuracy: {}'.format(lf_matching, str_matching))
+    
+    return lf_matching, outputs
+
+def inference(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    logging.info("Create train_loader and val_loader.........")
+    logging.info("Create train_loader and test_loader.........")
     vocab_json = os.path.join(args.input_dir, 'vocab.json')
-    val_pt = os.path.join(args.input_dir, 'test.pt')
-    val_loader = DataLoader(vocab_json, val_pt, args.batch_size)
-    kb = DataForSPARQL(os.path.join("./data/kqapro/dataset_new/", 'kb.json'))
+    test_pt = os.path.join(args.input_dir, 'test.pt')
+    test_loader = DataLoader(vocab_json, test_pt, args.batch_size)
     
     logging.info("Create model.........")
-    config_class, model_class, tokenizer_class = (BartConfig, BartForConditionalGeneration, BartTokenizer)
+    _, model_class, tokenizer_class = (AutoConfig, BartForConditionalGeneration, AutoTokenizer)
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
     model = model_class.from_pretrained(args.ckpt)
     model.resize_token_embeddings(len(tokenizer))
     model = model.to(device)
 
-    _, outputs = validate(args, kb, model, val_loader, device, tokenizer)
+    _, outputs = validate(args, model, test_loader, device, tokenizer)
     
     with open(os.path.join(args.output_dir, 'pred_queries.txt'), 'w') as f:
         for output in outputs:
@@ -60,6 +81,7 @@ def main():
     # input and output
     parser.add_argument('--input_dir', required=True)
     parser.add_argument('--output_dir', required=True, help='path to save files')
+    parser.add_argument('--config', required=True)
     parser.add_argument('--model_name_or_path', required = True)
     parser.add_argument('--ckpt', required=True)
 
@@ -67,13 +89,8 @@ def main():
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--seed', type=int, default=666, help='random seed')
 
-    parser.add_argument('--mode', required=True, choices= ['program', 'sparql', 'overnight', 'cypher'])
-    parser.add_argument('--ir_mode', default=None, choices=['TIR', 'UIR', 'CFQ_IR'])
-    parser.add_argument('--validate', action='store_false')
-    parser.add_argument('--self_correct', action='store_true')
-
-    # validating parameters
-    # parser.add_argument('--num_return_sequences', default=1, type=int)
+    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq'])
+    parser.add_argument('--self_correct', action='store_false')
 
     # model hyperparameters
     parser.add_argument('--dim_hidden', default=1024, type=int)
@@ -91,7 +108,7 @@ def main():
     for k, v in vars(args).items():
         logging.info(k+':'+str(v))
 
-    seed_everything(args.seed)
+    set_seed(args.seed)
 
     inference(args)
 

@@ -1,21 +1,12 @@
 .vscode
-data/
+data/*/data/
+data/*/evaluator/
 exp*/
+graphq_ir/
 bart-base/
-baseline_ckpt/
-.antlr/
-lib/
-evaluator/
-logging/
-_*/
-*.zip
-*.java
-*.class
-*.log
-*.txt
-*.ipynb
-*.svg
+notebooks/
 *.png
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

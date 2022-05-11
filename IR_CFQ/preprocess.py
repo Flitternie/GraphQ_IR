@@ -99,5 +99,6 @@ def main():
         with open(os.path.join(args.output_dir, '{}.pt'.format(name)), 'wb') as f:
             for o in outputs:
                 pickle.dump(o, f)
+                
 if __name__ == '__main__':
     main()
