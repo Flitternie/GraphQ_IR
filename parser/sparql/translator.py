@@ -16,7 +16,6 @@ def get_program_seq(sparql):
     seq = '<b>'.join(seq)
     return seq
 
-
 class Translator():
     def __init__(self):
         self.emitter = IREmitter()

@@ -14,6 +14,15 @@ from ..ir.utils import *
 class IREmitter(SparqlListener):
 
     def __init__(self):
+        self.SOP = {
+            "<": "smaller than",
+            ">": "larger than",
+            '=': 'is',
+            '!=': 'is not'
+        }
+        self.VTYPE = {
+            "xsd:double": 'number'
+        }
         self.ir = ""
 
         self.query_var = ""
@@ -32,10 +41,12 @@ class IREmitter(SparqlListener):
     def exitQuery(self, ctx: SparqlParser.QueryContext):
         if self.queryType == "EntityQuery":
             self.ir = "what is {}".format(ctx.slots["entitySet"])
+        if self.queryType == "CountQuery":
+            self.ir = "how many {}".format(ctx.slots["entitySet"])
         if self.queryType == 'AttributeQuery':
-            self.ir = "what {} Of {}".format(ctx.slots["attribute"], ctx.slots["entitySet"])
+            self.ir = "what is the attribute {} Of {}".format(ctx.slots["attribute"], ctx.slots["entitySet"])
         if self.queryType == "PredicateQuery":
-            self.ir = "what from {} to {}".format(ctx.slots["relationEntitySet1"], ctx.slots["relationEntitySet2"])
+            self.ir = "what is the relation from {} to {}".format(ctx.slots["relationEntitySet1"], ctx.slots["relationEntitySet2"])
         return super().exitQuery(ctx)
 
         # Enter a parse tree produced by SparqlParser#prologue.
@@ -216,7 +227,7 @@ class IREmitter(SparqlListener):
 
     # Enter a parse tree produced by SparqlParser#groupGraphPattern.
     def enterGroupGraphPattern(self, ctx: SparqlParser.GroupGraphPatternContext):
-        ctx.slots = strictDict({"triple_table": dict()})
+        ctx.slots = strictDict({"triple_table": dict(), "filter_table": dict()})
         return super().enterGroupGraphPattern(ctx)
 
     # Exit a parse tree produced by SparqlParser#groupGraphPattern.
@@ -224,10 +235,14 @@ class IREmitter(SparqlListener):
         if isinstance(ctx.parentCtx, SparqlParser.WhereClauseContext):
             if self.queryType == 'CountQuery' or self.queryType == 'EntityQuery':
                 print(ctx.slots['triple_table'])
-                ctx.parentCtx.slots['entitySet'] = scout_entity_set(ctx.slots['triple_table'], self.query_var)
+                print(ctx.slots['filter_table'])
+                ctx.parentCtx.slots['entitySet'] = scout_entity_set(
+                    ctx.slots['triple_table'], ctx.slots['filter_table'], self.query_var
+                )
 
             if self.queryType == 'AttributeQuery':
                 print(ctx.slots['triple_table'])
+                print(ctx.slots['filter_table'])
                 attribute = ''
                 es_var = ''
 
@@ -237,21 +252,26 @@ class IREmitter(SparqlListener):
                         es_var = triple[0]
                         break
 
-                es = scout_entity_set(ctx.slots['triple_table'], es_var, excluding=[self.query_var])
+                es = scout_entity_set(
+                    ctx.slots['triple_table'], ctx.slots['filter_table'], es_var, excluding=[self.query_var]
+                )
                 ctx.parentCtx.slots['entitySet'] = es
                 ctx.parentCtx.slots['attribute'] = attribute
             if self.queryType == 'PredicateQuery':
                 print(ctx.slots['triple_table'])
+                print(ctx.slots['filter_table'])
                 es_var1, es_var2 = '', ''
                 for triple in ctx.slots['triple_table'][self.query_var]:
                     if triple[1] == self.query_var:
                         es_var1 = triple[0]
                         es_var2 = triple[2]
 
-                print(es_var1, es_var2)
-
-                es1 = scout_entity_set(ctx.slots['triple_table'], es_var1, excluding=[self.query_var])
-                es2 = scout_entity_set(ctx.slots['triple_table'], es_var2, excluding=[self.query_var])
+                es1 = scout_entity_set(
+                    ctx.slots['triple_table'], ctx.slots['filter_table'], es_var1, excluding=[self.query_var]
+                )
+                es2 = scout_entity_set(
+                    ctx.slots['triple_table'], ctx.slots['filter_table'], es_var2, excluding=[self.query_var]
+                )
                 ctx.parentCtx.slots['relationEntitySet1'] = es1
                 ctx.parentCtx.slots['relationEntitySet2'] = es2
 
@@ -301,19 +321,31 @@ class IREmitter(SparqlListener):
 
     # Enter a parse tree produced by SparqlParser#filter_.
     def enterFilter_(self, ctx: SparqlParser.Filter_Context):
-        pass
+        ctx.slots = strictDict({'var': "", "sop": "", "vtype": "", "value": ""})
+        return super().enterFilter_(ctx)
 
     # Exit a parse tree produced by SparqlParser#filter_.
     def exitFilter_(self, ctx: SparqlParser.Filter_Context):
-        pass
+        if ctx.slots['var'] not in ctx.parentCtx.slots['filter_table'].keys():
+            ctx.parentCtx.slots['filter_table'][ctx.slots['var']] = []
+
+        ctx.parentCtx.slots['filter_table'][ctx.slots['var']].append(
+            (ctx.slots['sop'], ctx.slots['vtype'], ctx.slots['value'])
+        )
+        return super().exitFilter_(ctx)
 
     # Enter a parse tree produced by SparqlParser#constraint.
     def enterConstraint(self, ctx: SparqlParser.ConstraintContext):
-        pass
+        ctx.slots = strictDict({'var': "", "sop": "", "vtype": "", "value": ""})
+        return super().enterConstraint(ctx)
 
     # Exit a parse tree produced by SparqlParser#constraint.
     def exitConstraint(self, ctx: SparqlParser.ConstraintContext):
-        pass
+        ctx.parentCtx.slots['var'] = ctx.slots['var']
+        ctx.parentCtx.slots['sop'] = ctx.slots['sop']
+        ctx.parentCtx.slots['vtype'] = ctx.slots['vtype']
+        ctx.parentCtx.slots['value'] = ctx.slots['value']
+        return super().exitConstraint(ctx)
 
     # Enter a parse tree produced by SparqlParser#functionCall.
     def enterFunctionCall(self, ctx: SparqlParser.FunctionCallContext):
@@ -518,91 +550,140 @@ class IREmitter(SparqlListener):
 
     # Enter a parse tree produced by SparqlParser#expression.
     def enterExpression(self, ctx: SparqlParser.ExpressionContext):
-        pass
+        ctx.slots = strictDict({'var': "", "sop": "", "vtype": "", "value": ""})
+        return super().enterExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#expression.
     def exitExpression(self, ctx: SparqlParser.ExpressionContext):
-        pass
+        ctx.parentCtx.slots['var'] = ctx.slots['var']
+        ctx.parentCtx.slots['sop'] = ctx.slots['sop']
+        ctx.parentCtx.slots['vtype'] = ctx.slots['vtype']
+        ctx.parentCtx.slots['value'] = ctx.slots['value']
+        return super().exitExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#conditionalOrExpression.
     def enterConditionalOrExpression(self, ctx: SparqlParser.ConditionalOrExpressionContext):
-        pass
+        ctx.slots = strictDict({'var': "", "sop": "", "vtype": "", "value": ""})
+        return super().enterConditionalOrExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#conditionalOrExpression.
     def exitConditionalOrExpression(self, ctx: SparqlParser.ConditionalOrExpressionContext):
-        pass
+        ctx.parentCtx.slots['var'] = ctx.slots['var']
+        ctx.parentCtx.slots['sop'] = ctx.slots['sop']
+        ctx.parentCtx.slots['vtype'] = ctx.slots['vtype']
+        ctx.parentCtx.slots['value'] = ctx.slots['value']
+        return super().exitConditionalOrExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#conditionalAndExpression.
     def enterConditionalAndExpression(self, ctx: SparqlParser.ConditionalAndExpressionContext):
-        pass
+        ctx.slots = strictDict({'var': "", "sop": "", "vtype": "", "value": ""})
+        return super().enterConditionalAndExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#conditionalAndExpression.
     def exitConditionalAndExpression(self, ctx: SparqlParser.ConditionalAndExpressionContext):
-        pass
+        ctx.parentCtx.slots['var'] = ctx.slots['var']
+        ctx.parentCtx.slots['sop'] = ctx.slots['sop']
+        ctx.parentCtx.slots['vtype'] = ctx.slots['vtype']
+        ctx.parentCtx.slots['value'] = ctx.slots['value']
+        return super().exitConditionalAndExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#valueLogical.
     def enterValueLogical(self, ctx: SparqlParser.ValueLogicalContext):
-        pass
+        ctx.slots = strictDict({'var': "", "sop": "", "vtype": "", "value": ""})
+        return super().enterValueLogical(ctx)
 
     # Exit a parse tree produced by SparqlParser#valueLogical.
     def exitValueLogical(self, ctx: SparqlParser.ValueLogicalContext):
-        pass
+        ctx.parentCtx.slots['var'] = ctx.slots['var']
+        ctx.parentCtx.slots['sop'] = ctx.slots['sop']
+        ctx.parentCtx.slots['vtype'] = ctx.slots['vtype']
+        ctx.parentCtx.slots['value'] = ctx.slots['value']
+        return super().exitValueLogical(ctx)
 
     # Enter a parse tree produced by SparqlParser#relationalExpression.
     def enterRelationalExpression(self, ctx: SparqlParser.RelationalExpressionContext):
-        pass
+        return super().enterNumericExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#relationalExpression.
     def exitRelationalExpression(self, ctx: SparqlParser.RelationalExpressionContext):
-        pass
+        left, op, right = ctx.getChildren()
+        if left.slots['dtype'] == 'var' and right.slots['dtype'] != 'var':
+            ctx.parentCtx.slots['var'] = left.slots['var']
+            ctx.parentCtx.slots['sop'] = self.SOP[op.getText()]
+            ctx.parentCtx.slots['vtype'] = self.VTYPE[right.slots['dtype']]
+            ctx.parentCtx.slots['value'] = right.slots['value']
+
+        return super().exitRelationalExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#numericExpression.
     def enterNumericExpression(self, ctx: SparqlParser.NumericExpressionContext):
-        pass
+        ctx.slots = strictDict({"var": "", "dtype": "", "value": ""})
+        return super().enterNumericExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#numericExpression.
     def exitNumericExpression(self, ctx: SparqlParser.NumericExpressionContext):
-        pass
+        return super().exitNumericExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#additiveExpression.
     def enterAdditiveExpression(self, ctx: SparqlParser.AdditiveExpressionContext):
-        pass
+        ctx.slots = strictDict({"var": "", "dtype": "", "value": ""})
+        return super().enterAdditiveExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#additiveExpression.
     def exitAdditiveExpression(self, ctx: SparqlParser.AdditiveExpressionContext):
-        pass
+        ctx.parentCtx.slots["dtype"] = ctx.slots["dtype"]
+        ctx.parentCtx.slots["var"] = ctx.slots["var"]
+        ctx.parentCtx.slots["value"] = ctx.slots["value"]
+        return super().enterAdditiveExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#multiplicativeExpression.
     def enterMultiplicativeExpression(self, ctx: SparqlParser.MultiplicativeExpressionContext):
-        pass
+        ctx.slots = strictDict({"var": "", "dtype": "", "value": ""})
+        return super().enterMultiplicativeExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#multiplicativeExpression.
     def exitMultiplicativeExpression(self, ctx: SparqlParser.MultiplicativeExpressionContext):
-        pass
+        ctx.parentCtx.slots["dtype"] = ctx.slots["dtype"]
+        ctx.parentCtx.slots["var"] = ctx.slots["var"]
+        ctx.parentCtx.slots["value"] = ctx.slots["value"]
+        return super().exitMultiplicativeExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#unaryExpression.
     def enterUnaryExpression(self, ctx: SparqlParser.UnaryExpressionContext):
-        pass
+        ctx.slots = strictDict({"var": "", "dtype": "", "value": ""})
+        return super().enterUnaryExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#unaryExpression.
     def exitUnaryExpression(self, ctx: SparqlParser.UnaryExpressionContext):
-        pass
+        ctx.parentCtx.slots["dtype"] = ctx.slots["dtype"]
+        ctx.parentCtx.slots["var"] = ctx.slots["var"]
+        ctx.parentCtx.slots["value"] = ctx.slots["value"]
+        return super().exitUnaryExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#primaryExpression.
     def enterPrimaryExpression(self, ctx: SparqlParser.PrimaryExpressionContext):
-        pass
+        ctx.slots = strictDict({"var": "", "dtype": "", "value": ""})
+        return super().enterPrimaryExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#primaryExpression.
     def exitPrimaryExpression(self, ctx: SparqlParser.PrimaryExpressionContext):
-        pass
+        ctx.parentCtx.slots["dtype"] = ctx.slots["dtype"]
+        ctx.parentCtx.slots["var"] = ctx.slots["var"]
+        ctx.parentCtx.slots["value"] = ctx.slots["value"]
+        return super().exitPrimaryExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#brackettedExpression.
     def enterBrackettedExpression(self, ctx: SparqlParser.BrackettedExpressionContext):
-        pass
+        ctx.slots = strictDict({'var': "", "sop": "", "vtype": "", "value": ""})
+        return super().enterBrackettedExpression(ctx)
 
     # Exit a parse tree produced by SparqlParser#brackettedExpression.
     def exitBrackettedExpression(self, ctx: SparqlParser.BrackettedExpressionContext):
-        pass
+        ctx.parentCtx.slots['var'] = ctx.slots['var']
+        ctx.parentCtx.slots['sop'] = ctx.slots['sop']
+        ctx.parentCtx.slots['vtype'] = ctx.slots['vtype']
+        ctx.parentCtx.slots['value'] = ctx.slots['value']
+        return super().exitBrackettedExpression(ctx)
 
     # Enter a parse tree produced by SparqlParser#builtInCall.
     def enterBuiltInCall(self, ctx: SparqlParser.BuiltInCallContext):
@@ -695,7 +776,10 @@ class IREmitter(SparqlListener):
 
     # Exit a parse tree produced by SparqlParser#iriRef.
     def exitIriRef(self, ctx: SparqlParser.IriRefContext):
-        ctx.parentCtx.slots["predicate"] = ctx.getText()
+        if isinstance(ctx.parentCtx, SparqlParser.VarOrIRIrefContext):
+            ctx.parentCtx.slots["predicate"] = ctx.getText()
+        else:
+            ctx.parentCtx.slots["dtype"] = ctx.getText()
         return super().exitIriRef(ctx)
 
     # Enter a parse tree produced by SparqlParser#prefixedName.
@@ -738,26 +822,34 @@ def get_label(table: dict, var):
     return ''
 
 
-def get_attribute(table: dict, var):
-    assert var in table.keys()
-    label, value = '', ''
-    for triple in table[var]:
-        if triple[2] == var:
-            label = triple[1].strip('"').replace('<', '').replace('>', '')
+def get_attribute(triple_table: dict, filter_table: dict, var):
+    assert var in triple_table.keys()
+    constraints = []
+    for triple in triple_table[var]:
         if triple[0] == var and triple[1] == '<pred:value>':
-            value = triple[2]
+            if not triple[2].startswith('?'):
+                return [('is', 'text', triple[2], '')]
+            else:
+                for tp in triple_table[var]:
+                    if tp[0] == var and tp[1] == '<pred:unit>':
+                        if tp[2] == '1':
+                            unit = ''
+                            break
+                        else:
+                            unit = tp[2] + ' '
+                            break
+                for ft in filter_table[triple[2]]:
+                    constraints.append((*ft, unit))
+                return constraints
 
-    return label, value
 
-
-def scout_entity_set(table: dict, var: str, excluding=[]):
+def scout_entity_set(triple_table: dict, filter_table: dict, var: str, excluding=[]):
     entity = ''
     cls = ''
     entitySets = []
-
-    for triple in table[var]:
+    for triple in triple_table[var]:
         if triple[2] == '?c':
-            cls = '<C> {} </C>'.format(get_label(table, var))
+            cls = '<C> {} </C>'.format(get_label(triple_table, '?c'))
         if triple[1] == '<pred:name>':
             entity = '<E> {} </E>'.format(triple[2])
 
@@ -768,12 +860,14 @@ def scout_entity_set(table: dict, var: str, excluding=[]):
     elif cls != '' and cls != '':
         entity = '{} {}'.format(cls, entity)
 
-    for triple in table[var]:
+    for triple in triple_table[var]:
         if triple[2].startswith('?pv') and triple[2] not in excluding and triple[1] not in excluding:
-            entity_set = '<ES> {} whose <A> {} </A> is text <V> {} </V> </ES>'
-            label, value = get_attribute(table, triple[2])
-            entity_set = entity_set.format(entity, label, value)
-            entitySets.append(entity_set)
+            entity_set = '<ES> {} whose <A> {} </A> {} {} <V> {} {}</V> </ES>'
+            attr = triple[1].strip('"').replace('<', '').replace('>', '')
+            constraints = get_attribute(triple_table, filter_table, triple[2])
+            for constraint in constraints:
+                entity_set = entity_set.format(entity, attr, *constraint)
+                entitySets.append(entity_set)
 
     if entitySets:
         ES = f"{entitySets.pop()}"
@@ -784,6 +878,4 @@ def scout_entity_set(table: dict, var: str, excluding=[]):
         ES = entity
 
     return ES
-
-
 
