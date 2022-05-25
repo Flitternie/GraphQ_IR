@@ -31,11 +31,13 @@ def load_data(args):
             if not ans in vocab['answer_token_to_idx']:
                 vocab['answer_token_to_idx'][ans] = len(vocab['answer_token_to_idx'])
         question['input'] = question.pop('rewrite')
+        all_sparqls.append(question['sparql'])        
         question['target'] = question.pop('sparql')
-        all_sparqls.append(question['target'])
     
+    if args.ir_mode is None:
+        return  train_set, val_set, test_set, vocab
     if args.ir_mode == 'graphq':
-        from graphq_ir.kopl.translator import Translator
+        from graphq_ir.sparql.translator import Translator
         translator = Translator()
         for question in chain(train_set, val_set, test_set):
             question['target'] = translator.to_ir(question['program'])
@@ -47,8 +49,13 @@ def load_data(args):
         with open(parser_path, 'wb') as f:
             pickle.dump(translator, f)
         for question in chain(train_set, val_set, test_set):
-            question['target'] = translator.f_reversible(question['program'])
-
+            question['target'] = translator.f_reversible(question['target'])
+    elif args.ir_mode == 'canonical':
+        for question in chain(train_set, val_set, test_set):
+            question['target'] = question['origin']
+    else:
+        raise NotImplementedError("%s not supported" % args.ir_mode)
+        
     return train_set, val_set, test_set, vocab
 
 def reorder(sparql):
@@ -150,33 +157,6 @@ def post_process(text):
     bingo += chunks[-1]
     return bingo
 
-def translate(args, outputs):
-    if args.ir_mode == 'graphq':
-        from graphq_ir.ir.translator import Translator    
-        translator = Translator()
-        if args.self_correct:
-            from corrector import Corrector
-            corrector = Corrector()
-        translated_outputs = []
-        for output in outputs:
-            try:
-                output = corrector.correct(output) if args.self_correct else output
-                output = translator.to_sparql(output).replace('  ?', ' ?')
-                translated_outputs.append(output)
-            except Exception as e:
-                translated_outputs.append("")
-    elif args.ir_mode == 'cfq':
-        try:
-            with open(os.path.join(args.input_dir, 'parser.pkl'), 'rb') as f:
-                parser = pickle.load(f)
-        except:
-            raise Exception('CFQ translator not found')
-        translated_outputs = [parser.f_reversible_inverse(sparql) for sparql in outputs]
-    else:
-        raise NotImplementedError("%s not supported" % args.ir_mode)
-
-    return translated_outputs
-
 def evaluate(args, outputs, targets, all_answers, data):
     given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
 
@@ -206,4 +186,31 @@ def evaluate(args, outputs, targets, all_answers, data):
         for a in pred_answers:
             f.write('{}\n'.format(a))
 
-    return correct / count, np.mean([1 if p.strip() == g.strip() else 0 for p, g in zip(outputs, targets)])
+    return correct / count
+
+def translate(args, outputs):
+    if args.ir_mode == 'graphq':
+        from graphq_ir.ir.translator import Translator    
+        translator = Translator()
+        if args.self_correct:
+            from corrector import Corrector
+            corrector = Corrector()
+        translated_outputs = []
+        for output in outputs:
+            try:
+                output = corrector.correct(output) if args.self_correct else output
+                output = translator.to_sparql(output).replace('  ?', ' ?')
+                translated_outputs.append(output)
+            except Exception as e:
+                translated_outputs.append("")
+    elif args.ir_mode == 'cfq':
+        try:
+            with open(os.path.join(args.input_dir, 'parser.pkl'), 'rb') as f:
+                parser = pickle.load(f)
+        except:
+            raise Exception('CFQ translator not found')
+        translated_outputs = [parser.f_reversible_inverse(sparql).replace('  ?', ' ?') for sparql in outputs]
+    else:
+        raise NotImplementedError("%s not supported" % args.ir_mode)
+
+    return translated_outputs

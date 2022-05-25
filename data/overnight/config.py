@@ -2,6 +2,7 @@ import os
 import random
 from itertools import chain
 import numpy as np
+import pandas as pd
 import logging
 
 from data.overnight.evaluator.domain_base import Domain
@@ -40,18 +41,19 @@ def load_data(args):
         translator = Translator()
         for question in chain(train_set, val_set, test_set):
             question['target'] = translator.to_ir(question['target'])
+    elif args.ir_mode == 'canonical':
+        for question in chain(train_set, val_set, test_set):
+            question['target'] = question['canonical']
+    else:
+        raise NotImplementedError("%s not supported" % args.ir_mode)
         
     return train_set, val_set, test_set, vocab
 
 def read_overnight(path, domain_idx):
     ex_list = []
-    with open(path, 'r') as infile:
-        for line in infile:
-            line = line.strip()
-            if line == '':
-                continue
-            q, lf = line.split('\t')
-            ex_list.append({'input': q.strip(), 'target': lf.strip(), 'domain': domain_idx})
+    infile = pd.read_csv(path, sep='\t')
+    for idx, row in infile.iterrows():
+        ex_list.append({'input': row['utterance'].strip(), 'target': row['logical_form'].strip(), 'canonical': row['original'].strip(), 'domain': domain_idx})
     return ex_list
 
 def evaluate(args, outputs, targets, all_domains, *xargs):
@@ -68,7 +70,7 @@ def evaluate(args, outputs, targets, all_domains, *xargs):
         domain_score = evaluator.compare_logical_form(data[i][0], data[i][1])
         scores += domain_score
         logging.info("{}-domain accuracy: {}".format(overnight_domains[i], np.mean(domain_score)))
-    return np.mean(scores), np.mean([1 if p.strip() == g.strip() else 0 for p, g in zip(outputs, targets)])
+    return np.mean(scores)
 
 
 def translate(args, outputs, targets, domains):

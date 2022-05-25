@@ -227,7 +227,7 @@ def main():
                     help='node rank for distributed training')
     parser.add_argument('--port', default=12355, type=int)
 
-    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq'])
+    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq', 'canonical'])
     parser.add_argument('--self_correct', action='store_true')
     
     # validating parameters

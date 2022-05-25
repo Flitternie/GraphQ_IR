@@ -6,6 +6,7 @@ import argparse
 import importlib
 
 import torch
+import numpy as np
 from tqdm import tqdm
 from transformers import AutoConfig, BartForConditionalGeneration, AutoTokenizer, set_seed
 
@@ -42,14 +43,15 @@ def validate(args, model, data, device, tokenizer):
             all_targets.extend(target_ids.cpu().numpy())
             all_answers.extend(answers.cpu().numpy())
             
-        outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for output_id in all_outputs]
-        targets = [tokenizer.decode(target_id, skip_special_tokens = True, clean_up_tokenization_spaces = False) for target_id in all_targets]
+        outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces=False) for output_id in all_outputs]
+        targets = [tokenizer.decode(target_id, skip_special_tokens = True, clean_up_tokenization_spaces=False) for target_id in all_targets]
 
     with open("./test.txt", "w") as f:
         for output, target in zip(outputs, targets):
             f.write("{}\t{}\n".format(output, target))
 
-    lf_matching, str_matching = config.evaluate(args, outputs, targets, all_answers, data)
+    str_matching = np.mean([1 if p.strip() == g.strip() else 0 for p, g in zip(outputs, targets)])
+    lf_matching = config.evaluate(args, outputs, targets, all_answers, data)
     logging.info('Execution accuracy: {}, String matching accuracy: {}'.format(lf_matching, str_matching))
     
     return lf_matching, outputs
@@ -89,7 +91,7 @@ def main():
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--seed', type=int, default=666, help='random seed')
 
-    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq'])
+    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq', 'canonical'])
     parser.add_argument('--self_correct', action='store_false')
 
     # model hyperparameters

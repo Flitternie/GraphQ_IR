@@ -40,7 +40,11 @@ def load_data(args):
         translator = Translator()
         for question in chain(train_set, val_set, test_set):
             question['target'] = translator.to_ir(question['target'])
-
+    elif args.ir_mode == 'canonical':
+        for question in chain(train_set, val_set, test_set):
+            question['target'] = question['origin']
+    else:
+        raise NotImplementedError("%s not supported" % args.ir_mode)
     return train_set, val_set, test_set, vocab
 
 def post_process(text):
@@ -102,7 +106,7 @@ def evaluate(args, outputs, targets, all_answers, data):
     given_answer = [data.vocab['answer_idx_to_token'][a] for a in all_answers]
 
     if args.ir_mode:
-        output = translate(args, outputs)
+        outputs = translate(args, outputs)
     
     executor = RuleExecutor(os.path.join(os.path.dirname(__file__), 'data/kb.json'))
     count, correct = 0, 0
@@ -116,4 +120,4 @@ def evaluate(args, outputs, targets, all_answers, data):
             correct += 1
         count += 1
     acc = correct / count
-    return acc, np.mean([1 if p.strip() == g.strip() else 0 for p, g in zip(outputs, targets)])
+    return acc

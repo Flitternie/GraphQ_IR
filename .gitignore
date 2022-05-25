@@ -1,12 +1,15 @@
 .vscode
-data/*/data/
-data/*/evaluator/
-exp*/
+*.png
+*.txt
+*.ipynb
+
 graphq_ir/
 bart-base/
 notebooks/
-*.png
-*.txt
+
+data/*/data/
+data/*/evaluator/
+exp_*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
