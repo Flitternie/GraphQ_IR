@@ -395,8 +395,9 @@ def postprocess_sparql(sparql: str, domains: dict, disambiguate: dict):
         else:
             query_var = re.search(r"(?<=ORDER BY )\?[a-z]*_?\d?", sparql).group(0)
 
-        main_query_var = re.search(r'(?<=DISTINCT )\?[a-z](_)?\d?', sparql).group(0)
-        sparql = re.sub(r'(?<=DISTINCT )\?[a-z](_)?\d?', "{},{}".format(main_query_var, query_var), sparql)
+        sparql = re.sub(r'(SELECT DISTINCT|SELECT) ?(\?[a-z]_?\d?)', r'\1 \2,{}'.format(query_var), sparql)
+        
+
 
     return sparql
 
