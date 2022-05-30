@@ -14,6 +14,7 @@ path = str(Path(__file__).parent.absolute())
 
 uri2abbr = {
     "<http://www.w3.org/2001/XMLSchema#float>": "xsd:float",
+    "<http://www.w3.org/2001/XMLSchema#double>": "xsd:double",
     "<http://www.w3.org/2001/XMLSchema#integer>": "xsd:int",
     "<http://www.w3.org/2001/XMLSchema#gYear>": "xsd:year",
     "<http://www.w3.org/2001/XMLSchema#gYearMonth>": "xsd:gYearMonth",
@@ -23,6 +24,7 @@ uri2abbr = {
 
 abbr2uri = {
     "xsd:float": "<http://www.w3.org/2001/XMLSchema#float>",
+    "xsd:double": "<http://www.w3.org/2001/XMLSchema#double>",
     "xsd:int": "<http://www.w3.org/2001/XMLSchema#integer>",
     "xsd:year": "<http://www.w3.org/2001/XMLSchema#gYear>",
     "xsd:date": "<http://www.w3.org/2001/XMLSchema#date>",
@@ -366,6 +368,9 @@ def postprocess_sparql(sparql: str, domains: dict, disambiguate: dict):
                 sparql = sparql.replace(ft, new_ft)
                 break
 
+    # remove the unit "1"
+    sparql = re.sub(r"\s*\?[a-z]*_?\d?\s*\<pred:unit\>\s*\"1\"\s*\.", "", sparql)
+
     # postprocess disjoint filter
     variables = set(re.findall(r'\?[a-z]*_?\d?', sparql))
     if "?count" in variables:
@@ -385,8 +390,8 @@ def postprocess_sparql(sparql: str, domains: dict, disambiguate: dict):
 
     fil = fil[:-3] # remove the extra &&\s
     fil = "FILTER ( {} )".format(fil)
-    EOT = re.search(r"(?<=\.)[^\.]*$", sparql).group(0)
-    sparql = re.sub(r"\.(?={})".format(re.escape(EOT)), ". {}".format(fil), sparql)
+    # EOT = re.search(r"(?<=\.)[^\.]*$", sparql).group(0)
+    sparql = re.sub(r"\.(?=\s)", ". {} ".format(fil), sparql, count=1)
 
     # postprocess query chain
     if "ORDER BY" in sparql:
