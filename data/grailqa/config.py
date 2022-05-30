@@ -13,21 +13,22 @@ domains = []
 path = str(Path(__file__).parent.absolute())
 
 uri2abbr = {
-        "<http://www.w3.org/2001/XMLSchema#float>": "xsd:float",
-        "<http://www.w3.org/2001/XMLSchema#integer>": "xsd:int",
-        "<http://www.w3.org/2001/XMLSchema#gYear>": "xsd:year",
-        "<http://www.w3.org/2001/XMLSchema#gYearMonth>": "xsd:date",
-        "<http://www.w3.org/2001/XMLSchema#date>": "xsd:date",
-        "<http://www.w3.org/2001/XMLSchema#dateTime>": "xsd:time"
-    }
+    "<http://www.w3.org/2001/XMLSchema#float>": "xsd:float",
+    "<http://www.w3.org/2001/XMLSchema#integer>": "xsd:int",
+    "<http://www.w3.org/2001/XMLSchema#gYear>": "xsd:year",
+    "<http://www.w3.org/2001/XMLSchema#gYearMonth>": "xsd:gYearMonth",
+    "<http://www.w3.org/2001/XMLSchema#date>": "xsd:date",
+    "<http://www.w3.org/2001/XMLSchema#dateTime>": "xsd:time"
+}
 
 abbr2uri = {
-        "xsd:float": "<http://www.w3.org/2001/XMLSchema#float>",
-        "xsd:int": "<http://www.w3.org/2001/XMLSchema#integer>",
-        "xsd:year": "<http://www.w3.org/2001/XMLSchema#gYear>",
-        "xsd:date": "<http://www.w3.org/2001/XMLSchema#date>",
-        "xsd:time": "<http://www.w3.org/2001/XMLSchema#dateTime>"
-    }
+    "xsd:float": "<http://www.w3.org/2001/XMLSchema#float>",
+    "xsd:int": "<http://www.w3.org/2001/XMLSchema#integer>",
+    "xsd:year": "<http://www.w3.org/2001/XMLSchema#gYear>",
+    "xsd:date": "<http://www.w3.org/2001/XMLSchema#date>",
+    "xsd:gYearMonth": "<http://www.w3.org/2001/XMLSchema#gYearMonth>",
+    "xsd:time": "<http://www.w3.org/2001/XMLSchema#dateTime>"
+}
 
 def unpack(path):
     with open(path, 'r') as f:
@@ -55,6 +56,13 @@ disambig = {
     "types": types,
     "relations": relations
 }
+
+confusing_labels = set()
+with open(path + "/data/ontology/secondary_domain_disambiguation.txt", 'r') as f:
+    lines = f.readlines()
+    for line in lines:
+        for t in line.split():
+            confusing_labels.add(t) 
 
 def load_data(args):
     print('Build kb vocabulary')
@@ -241,18 +249,24 @@ def preprocess_sparql(item, prune=True, normalize=True, name=True):
                     result = result.replace(f" :{node['id']} ", " \"{}\" ".format(
                         re.sub(r'[\"\:\n]', '', node['friendly_name'])))
                 elif f" :{node['id']} " in result and node['node_type'] == 'class':
-                    result = result.replace(f" :{node['id']} ", " \"{}\" ".format(
-                        re.sub(r'[\"\:\n]', '', node['id'].split('.', 1)[-1].replace('_', ' '))
-                        # re.sub(r'[\"\:\n]', '', node['friendly_name'])))
-                    ))
+                    if node["id"] in confusing_labels:
+                        result = result.replace(f" :{node['id']} ", " \"{}\" ".format(
+                            re.sub(r'[\"\:\n]', '', node['id'].replace('_', ' '))
+                            # re.sub(r'[\"\:\n]', '', node['friendly_name'])))
+                        ))
+                    else:
+                        result = result.replace(f" :{node['id']} ", " \"{}\" ".format(
+                            re.sub(r'[\"\:\n]', '', node['id'].split('.', 1)[-1].replace('_', ' '))
+                            # re.sub(r'[\"\:\n]', '', node['friendly_name'])))
+                        ))
         else:
+            result = re.sub(r'VALUES (\?.*?) \{ :(.*?)\}', r'\1 :type.object.name \2 .', result)
             for node in item['graph_query']['nodes']:
-                if f" :{node['id']} " in result and node['node_type'] == 'entity':
-                    result = result.replace(f" :{node['id']} ", " \"{}\"@en ".format(
+                if f" {node['id']} " in result and node['node_type'] == 'entity':
+                    result = result.replace(f" {node['id']} ", " \"{}\"@en ".format(
                         re.sub(r'[\"\:\n]', '', node['friendly_name'])
                     ))
-            result = re.sub(r'VALUES (\?.*?) \{(.*?)\}', r'\1 :type.object.name \2 .', result)
-       
+            
         return result
 
     sparql = pruning(sparql) if prune else sparql
@@ -272,13 +286,17 @@ def postprocess_sparql(sparql: str, domains: dict, disambiguate: dict):
             for ent_id in domains[key]:
                 if ent_id.split('.', 1)[1].replace(".", "_") == s:
                     ids.append(ent_id)
+                if ent_id.replace(".", "_") == s:
+                    ids.append(ent_id)
 
         if len(ids) != 1:
             for eid in ids:
                 if eid in disambiguate[k]:
                     return eid
-
-        return ids[0]
+        try:
+            return ids[0]
+        except IndexError:
+            raise IndexError
 
     def get_pv_var(v: str, query: str):
         pv_var = re.search(r"\?pv_?\d?(?=\s<pred:value>\s{})".format(re.escape(v)), query)
@@ -329,7 +347,7 @@ def postprocess_sparql(sparql: str, domains: dict, disambiguate: dict):
         sparql = re.sub(r"{}(?=\s|\<|\>|\!|\=|\.)".format(re.escape(val_var)), pv_var, sparql)
 
     # postprocess VALUES
-    val_trips = re.findall(r"\?[a-z]*_?\d?\s*\<pred:[a-z]*\>\s*\"[^\"]*\"\^\^xsd:[a-z]*\s*\.", sparql)
+    val_trips = re.findall(r"\?[a-z]*_?\d?\s*\<pred:[a-zA-Z]*\>\s*\"[^\"]*\"\^\^xsd:[a-zA-Z]*\s*\.", sparql)
     for val_trip in val_trips:
         for key in abbr2uri.keys():
             if key in val_trip:
@@ -352,6 +370,8 @@ def postprocess_sparql(sparql: str, domains: dict, disambiguate: dict):
     variables = set(re.findall(r'\?[a-z]*_?\d?', sparql))
     if "?count" in variables:
         variables.remove("?count")
+    if "?" in variables:
+        variables.remove("?")
     
     vpairs = []
     fil = ""
