@@ -24,7 +24,7 @@ uri2abbr = {
 
 abbr2uri = {
     "xsd:float": "<http://www.w3.org/2001/XMLSchema#float>",
-    "xsd:double": "<http://www.w3.org/2001/XMLSchema#double>",
+    "xsd:double": "<http://www.w3.org/2001/XMLSchema#float>",
     "xsd:int": "<http://www.w3.org/2001/XMLSchema#integer>",
     "xsd:year": "<http://www.w3.org/2001/XMLSchema#gYear>",
     "xsd:date": "<http://www.w3.org/2001/XMLSchema#date>",
