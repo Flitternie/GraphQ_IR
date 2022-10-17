@@ -10,10 +10,8 @@ import argparse
 from data.kqapro.utils.load_kb import DataForSPARQL
 from data.kqapro.utils.value_class import ValueClass
 
-
+# change this to your own virtuoso address
 virtuoso_address = "http://166.111.68.66:25890/sparql"
-# virtuoso_graph_uri = 'sjx'
-
 
 def legal(s):
     # convert predicate and attribute keys to legal format

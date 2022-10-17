@@ -49,8 +49,10 @@ def main():
     parser.add_argument('--config', required=True)
     parser.add_argument('--model_name_or_path', required=True)
 
-    parser.add_argument('--seed', type=int, default=666)
-    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq', 'canonical'])
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq'])
+
+    # for running cross-domain or low-resource experiments in special cases
     parser.add_argument('--domain', default='all')
     parser.add_argument('--cross_domain', action='store_true')
     parser.add_argument('--low_resource', default=100, type=int)

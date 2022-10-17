@@ -62,7 +62,7 @@ def train(args):
     
     if args.n_gpus > 1:
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model).cuda()
-        model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
+        model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=False)
     else:
         model = model.to(device)
 
@@ -207,12 +207,12 @@ def main():
 
     # training parameters
     parser.add_argument('--weight_decay', default=1e-5, type=float)
-    parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--seed', type=int, default=666, help='random seed')
+    parser.add_argument('--batch_size', default=64, type=int)
+    parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--learning_rate', default=3e-5, type=float)
-    parser.add_argument('--num_train_epochs', default=25, type=int)
+    parser.add_argument('--num_train_epochs', default=100, type=int)
     parser.add_argument('--logging_per_epoch', default=1, type=int)
-    parser.add_argument('--early_stopping', default=5, type=int)
+    parser.add_argument('--early_stopping', default=15, type=int)
     parser.add_argument('--warmup_proportion', default=0.1, type=float,
                         help="Proportion of training to perform linear learning rate warmup for,E.g., 0.1=10% of training.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
@@ -227,12 +227,8 @@ def main():
                     help='node rank for distributed training')
     parser.add_argument('--port', default=12355, type=int)
 
-    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq', 'canonical'])
+    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq'])
     parser.add_argument('--self_correct', action='store_true')
-    
-    # validating parameters
-    # parser.add_argument('--num_return_sequences', default=1, type=int)
-    # parser.add_argument('--top_p', default=)
     
     # model hyperparameters
     parser.add_argument('--dim_hidden', default=1024, type=int)

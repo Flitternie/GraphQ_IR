@@ -1,4 +1,4 @@
-from utils.value_class import ValueClass, comp
+from data.kqapro.utils.value_class import ValueClass, comp
 import json
 from collections import defaultdict
 from datetime import date
@@ -173,7 +173,7 @@ class RuleExecutor(object):
                 elif p in {'FindAll', 'Find'}:
                     dep = [0, 0]
                     branch_stack.append(i - 1)
-                elif p in {'And', 'Or', 'SelectBetween', 'QueryRelation', 'QueryRelationQualifier'}:
+                elif p in {'And', 'Or', 'QueryRelation', 'QueryRelationQualifier'}:
                     dep = [branch_stack[-1], i-1]
                     branch_stack = branch_stack[:-1]
                 else:
@@ -351,35 +351,42 @@ class RuleExecutor(object):
         entity_ids, _ = dependencies[0]
         return len(entity_ids)
 
-    def SelectBetween(self, dependencies, inputs):
-        entity_ids_1, _ = dependencies[0]
-        entity_ids_2, _ = dependencies[1]
-        entity_id_1 = entity_ids_1[0]
-        entity_id_2 = entity_ids_2[0]
-        key, op = inputs[0], inputs[1]
-        for attr_info in self.entities[entity_id_1]['attributes']:
-            if key == attr_info['key']:
-                v1 = attr_info['value']
-        for attr_info in self.entities[entity_id_2]['attributes']:
-            if key == attr_info['key']:
-                v2 = attr_info['value']
-        i = entity_id_1 if ((op=='greater' and v1>v2) or (op=='less' and v1<v2)) else entity_id_2
-        name = self.entities[i]['name']
-        return name
+    # def SelectBetween(self, dependencies, inputs):
+    #     entity_ids_1, _ = dependencies[0]
+    #     entity_ids_2, _ = dependencies[1]
+    #     entity_id_1 = entity_ids_1[0]
+    #     entity_id_2 = entity_ids_2[0]
+    #     key, op = inputs[0], inputs[1]
+    #     for attr_info in self.entities[entity_id_1]['attributes']:
+    #         if key == attr_info['key']:
+    #             v1 = attr_info['value']
+    #     for attr_info in self.entities[entity_id_2]['attributes']:
+    #         if key == attr_info['key']:
+    #             v2 = attr_info['value']
+    #     i = entity_id_1 if ((op=='greater' and v1>v2) or (op=='less' and v1<v2)) else entity_id_2
+    #     name = self.entities[i]['name']
+    #     return name
 
-    def SelectAmong(self, dependencies, inputs):
+    def Select(self, dependencies, inputs):
         entity_ids, _ = dependencies[0]
-        key, op = inputs[0], inputs[1]
+        key, op, topk, offset = inputs[0], inputs[1], (int)(inputs[2]), (int)(inputs[3])
         candidates = []
         for i in entity_ids:
             for attr_info in self.entities[i]['attributes']:
                 if key == attr_info['key']:
                     v = attr_info['value']
             candidates.append((i, v))
-        sort = sorted(candidates, key=lambda x: x[1])
-        i = sort[0][0] if op=='smallest' else sort[-1][0]
-        name = self.entities[i]['name']
-        return name
+        # print(len(candidates))
+        entity_ids = []
+        if op == 'smallest':
+            sort = sorted(candidates, key=lambda x: x[1])  
+        else:
+            sort = sorted(candidates, key=lambda x: x[1], reverse = True)
+        for i in range(offset, offset + topk):
+            entity_ids.append(sort[i][0])
+        # i = sort[0][0] if op=='smallest' else sort[-1][0]
+        # name = self.entities[i]['name']
+        return (entity_ids, None)
 
     def QueryAttr(self, dependencies, inputs):
         entity_ids, _ = dependencies[0]
@@ -482,3 +489,15 @@ class RuleExecutor(object):
                     if qk == qual_key:
                         return qvs[0]
         return None
+
+
+
+# FindAll()FilterYear(publication date, 1990, =)FilterConcept(film)SelectAmong(duration, largest)
+# program = ['<START>', 'FindAll', 'FilterYear', 'FilterConcept', 'Select', 'What', '<END>']
+# inputs = [[], [], ['publication date', '1990', '='], ['film'], ['duration', 'largest', 1, 0], [], []]
+
+# Which one has greater students number, Butler University or Case Western Reserve University
+# [{'function': 'Find', 'dependencies': [], 'inputs': ['Butler University']}, {'function': 'Find', 'dependencies': [], 'inputs': ['Case Western Reserve University']}, {'function': 'SelectBetween', 'dependencies': [0, 1], 'inputs': ['students count', 'greater']}]
+
+# program = ['<START>', 'Find', 'Find', 'Or', 'Select', 'What', '<END>']
+# inputs = [[], ['Butler University'], ['Case Western Reserve University'], [], ['students count', 'largest', 1, 0]]

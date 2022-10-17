@@ -86,7 +86,7 @@ def load_data(args):
         return  train_set, val_set, test_set, vocab
     
     if args.ir_mode == 'graphq':
-        from graphq_ir.sparql.translator import Translator
+        from graphq_trans.sparql.translator import Translator
         translator = Translator()
         for question in chain(train_set, val_set, test_set):
             question['target'] = translator.to_ir(preprocess_sparql(question, normalize=True, name=True))

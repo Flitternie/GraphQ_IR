@@ -37,7 +37,7 @@ def validate(args, model, data, device, tokenizer):
             source_ids, source_mask, _, target_ids, answers = [x.to(device) for x in batch]
             outputs = model.generate(
                 input_ids=source_ids,
-                max_length = 500,
+                max_length = 512,
             )
             all_outputs.extend(outputs.cpu().numpy())
             all_targets.extend(target_ids.cpu().numpy())
@@ -89,14 +89,14 @@ def main():
 
     # training parameters
     parser.add_argument('--batch_size', default=256, type=int)
-    parser.add_argument('--seed', type=int, default=666, help='random seed')
+    parser.add_argument('--seed', type=int, default=42, help='random seed')
 
-    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq', 'canonical'])
+    parser.add_argument('--ir_mode', default=None, choices=['graphq', 'cfq'])
     parser.add_argument('--self_correct', action='store_false')
 
     # model hyperparameters
     parser.add_argument('--dim_hidden', default=1024, type=int)
-    parser.add_argument('--alpha', default = 1e-4, type = float)
+    parser.add_argument('--alpha', default=1e-4, type = float)
 
     args = parser.parse_args()
 

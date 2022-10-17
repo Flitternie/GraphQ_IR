@@ -27,17 +27,17 @@ def load_data(args):
     all_sparqls = []
 
     for question in chain(train_set, val_set, test_set):
-        for ans in question['choices']:
-            if not ans in vocab['answer_token_to_idx']:
-                vocab['answer_token_to_idx'][ans] = len(vocab['answer_token_to_idx'])
+        if not question['answer'] in vocab['answer_token_to_idx']:
+            vocab['answer_token_to_idx'][question['answer']] = len(vocab['answer_token_to_idx'])
         question['input'] = question.pop('rewrite')
         all_sparqls.append(question['sparql'])        
         question['target'] = question.pop('sparql')
+        question['extra_id'] = vocab['answer_token_to_idx'].get(question['answer'])
     
     if args.ir_mode is None:
         return  train_set, val_set, test_set, vocab
     if args.ir_mode == 'graphq':
-        from graphq_ir.sparql.translator import Translator
+        from graphq_trans.sparql.translator import Translator
         translator = Translator()
         for question in chain(train_set, val_set, test_set):
             question['target'] = translator.to_ir(question['program'])
@@ -190,7 +190,7 @@ def evaluate(args, outputs, targets, all_answers, data):
 
 def translate(args, outputs):
     if args.ir_mode == 'graphq':
-        from graphq_ir.ir.translator import Translator    
+        from graphq_trans.ir.translator import Translator    
         translator = Translator()
         if args.self_correct:
             from corrector import Corrector

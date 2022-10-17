@@ -5,7 +5,7 @@ from itertools import chain
 from tqdm import tqdm
 import numpy as np
 
-from data.kqapro.utils.executor_rule_new import RuleExecutor 
+from data.kqapro.utils.executor_rule import RuleExecutor 
 
 special_tokens = ['<c>', '<b>']
 domains = []
@@ -29,14 +29,14 @@ def load_data(args):
     val_set = json.load(open(os.path.join(args.input_dir, 'val.json')))
     test_set = json.load(open(os.path.join(args.input_dir, 'test.json')))
     for question in chain(train_set, val_set, test_set):
-        for ans in question['choices']:
-            if not ans in vocab['answer_token_to_idx']:
-                vocab['answer_token_to_idx'][ans] = len(vocab['answer_token_to_idx'])
+        if not question['answer'] in vocab['answer_token_to_idx']:
+            vocab['answer_token_to_idx'][question['answer']] = len(vocab['answer_token_to_idx'])
         question['input'] = question.pop('rewrite')
         question['target'] = get_program_seq(question.pop('program'))
+        question['extra_id'] = vocab['answer_token_to_idx'].get(question['answer'])
     
     if args.ir_mode == 'graphq':
-        from graphq_ir.kopl.translator import Translator
+        from graphq_trans.kopl.translator import Translator
         translator = Translator()
         for question in chain(train_set, val_set, test_set):
             question['target'] = translator.to_ir(question['target'])
@@ -89,7 +89,7 @@ def sequence_to_program(input):
 
 def translate(args, outputs):
     if args.mode == 'graphq':
-        from graphq_ir.ir.translator import Translator
+        from graphq_trans.ir.translator import Translator
         translator = Translator()
         translated_outputs = []
         for output in outputs:

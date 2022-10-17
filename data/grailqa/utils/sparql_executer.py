@@ -5,6 +5,7 @@ import urllib
 from pathlib import Path
 from tqdm import tqdm
 
+# change this to your own virtuoso address
 sparql = SPARQLWrapper("http://166.111.68.66:62531/sparql")
 sparql.setReturnFormat(JSON)
 

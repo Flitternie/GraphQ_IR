@@ -1,6 +1,6 @@
 import os
 import re
-from data.kqapro.utils.executor_rule_new import RuleExecutor
+from data.kqapro.utils.executor_rule import RuleExecutor
 import difflib
 
 class Corrector():

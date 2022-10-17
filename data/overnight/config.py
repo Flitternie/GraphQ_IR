@@ -37,14 +37,14 @@ def load_data(args):
             test_set += read_overnight(os.path.join(args.input_dir, domain + '_test.tsv'), idx)
     
     if args.ir_mode == 'graphq':
-        from graphq_ir.overnight.translator import Translator
+        from graphq_trans.overnight.translator import Translator
         translator = Translator()
         for question in chain(train_set, val_set, test_set):
             question['target'] = translator.to_ir(question['target'])
     elif args.ir_mode == 'canonical':
         for question in chain(train_set, val_set, test_set):
             question['target'] = question['canonical']
-    else:
+    elif args.ir_mode:
         raise NotImplementedError("%s not supported" % args.ir_mode)
         
     return train_set, val_set, test_set, vocab
@@ -77,7 +77,7 @@ def translate(args, outputs, targets, domains):
     if args.ir_mode == 'graphq':
         translated_outputs = []
         translated_targets = []
-        from graphq_ir.ir.translator import Translator
+        from graphq_trans.ir.translator import Translator
         translator = Translator()
         for output, target, domain_idx in zip(outputs, targets, domains):
             translator.set_domain(domain_idx)
