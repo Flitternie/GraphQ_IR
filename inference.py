@@ -46,7 +46,7 @@ def validate(args, model, data, device, tokenizer):
         outputs = [tokenizer.decode(output_id, skip_special_tokens = True, clean_up_tokenization_spaces=False) for output_id in all_outputs]
         targets = [tokenizer.decode(target_id, skip_special_tokens = True, clean_up_tokenization_spaces=False) for target_id in all_targets]
 
-    with open("./test.txt", "w") as f:
+    with open("./output.txt", "w") as f:
         for output, target in zip(outputs, targets):
             f.write("{}\t{}\n".format(output, target))
 
