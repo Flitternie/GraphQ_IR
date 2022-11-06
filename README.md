@@ -2,6 +2,8 @@
 
 This repository contains source code for the EMNLP 2022 Long Paper "GraphQ IR: Unifying the Semantic Parsing of Graph Query Languages with One Intermediate Representation".
 
+ ![Figure](https://i.postimg.cc/gJfNhkCh/main.png)
+
 ## Setup
 
 ###  General Setup 
