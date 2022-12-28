@@ -3,9 +3,10 @@
 *.txt
 *.ipynb
 
-graphq_ir/
+graphq_trans/
 bart-base/
 notebooks/
+pack/
 
 data/*/data/
 data/*/evaluator/
